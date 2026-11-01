@@ -162,3 +162,34 @@ test('envelope curve evaluation and LUT', () => {
   assert.equal(library.envelopes.length, 1);
   assert.ok(library.envelopes[0].lut[0] > 0.99 && library.envelopes[0].lut[255] < 0.01);
 });
+
+test('reads the stage STLT-VJ writes and relinks a document onto it', async () => {
+  const { parseStltVjStage, isStltVjStage } = await import('../src/stltvjStage.mjs');
+  const stage = {
+    format: 'stlt-vj-chaser-stage',
+    version: 1,
+    compWidth: 1000,
+    compHeight: 500,
+    screens: [{ id: 'screen-1', name: 'Screen 1', width: 1920, height: 1080 }],
+    slices: [
+      { id: 'a1', name: 'A', screen: 'screen-1', points: [[0, 0], [500, 0], [500, 500], [0, 500]], outPoints: [[0, 0], [960, 0], [960, 1080], [0, 1080]] },
+      { id: 'b2', name: 'B', screen: 'screen-1', points: [[500, 0], [1000, 0], [1000, 500], [500, 500]], outPoints: [] },
+      { id: 'a1', name: 'duplicate', screen: 'screen-1', points: [[0, 0], [1, 0], [1, 1]] },
+      { id: 'c3', name: 'too few points', screen: 'screen-1', points: [[0, 0], [1, 0]] },
+    ],
+  };
+  const setup = parseStltVjStage(JSON.stringify(stage));
+  assert.equal(setup.compWidth, 1000);
+  assert.deepEqual(setup.slices.map((s) => s.id), ['a1', 'b2']);
+  assert.equal(setup.screens[0].width, 1920);
+  assert.ok(isStltVjStage('C:\\x\\chaser-stage.json') && !isStltVjStage('AdvancedOutput.xml'));
+  assert.throws(() => parseStltVjStage('{"format":"other"}'));
+  assert.throws(() => parseStltVjStage('{"format":"stlt-vj-chaser-stage","compWidth":0,"compHeight":0}'));
+
+  // A document made on Resolume's slices keeps its steps for slices of the same name.
+  const doc = sampleDoc();
+  const arenaA = doc.slices.find((s) => s.name === 'A').id;
+  doc.sequences[0].steps[0] = [arenaA];
+  D.relink(doc, setup, 'chaser-stage.json');
+  assert.deepEqual(doc.sequences[0].steps[0], ['a1']);
+});

@@ -1,6 +1,6 @@
 # Formato dei file STLT-CHASER
 
-Tutti i file sono JSON UTF-8 e stanno nella cartella dati: `%APPDATA%\Stilletchaser\` su Windows (fuori dalle cartelle protette dall'Accesso alle cartelle controllato), `~/Library/Application Support/Stilletchaser/` su macOS. Le copie fatte con *Save As* possono stare ovunque.
+Tutti i file sono JSON UTF-8 e stanno nella cartella dati: `%APPDATA%\Stilletchaser\` su Windows (fuori dalle cartelle protette dall'Accesso alle cartelle controllato), `~/Library/Application Support/Stilletchaser/` su macOS. Le copie fatte con *Save As* possono stare ovunque. Se la variabile d'ambiente `STLT_DATA_DIR` è impostata (lo fa STLT-VJ: `<impostazioni di STLT-VJ>/chaser`), editor e plugin usano quella cartella.
 
 ## `current.stchase` — documento attivo
 
@@ -61,3 +61,25 @@ L'editor lo riscrive a ogni modifica (sostituzione atomica: scrive `current.stch
 
 - `points`: punti di ancoraggio con maniglie Bézier relative (`in`, `out`), x e y fra 0 e 1. Servono all'editor.
 - `lut`: la curva campionata in 256 valori su x = 0…1. I plugin usano solo questa.
+
+## `stlt-vj-stage.json` — le slice di STLT-VJ
+
+Lo scrive STLT-VJ (nella cartella dati) ogni volta che cambia il suo Advanced Output; l'editor aperto da STLT-VJ (`--stlt-vj <file>`) lo segue come segue `AdvancedOutput.xml` per Resolume. Le maschere non ci sono.
+
+```json
+{
+  "format": "stlt-vj-chaser-stage",
+  "version": 1,
+  "compWidth": 1920,
+  "compHeight": 1080,
+  "screens": [ { "id": "screen-1", "name": "Screen 1", "width": 1920, "height": 1080 } ],
+  "slices": [
+    { "id": "9d8e020b4521024b", "name": "Slice 1", "screen": "screen-1",
+      "points": [ [0, 0], [960, 0], [960, 1080], [0, 1080] ],
+      "outPoints": [ [0, 0], [960, 0], [960, 1080], [0, 1080] ] }
+  ]
+}
+```
+
+- `id`: fisso per ogni slice di STLT-VJ, anche se la sposti o la rinomini.
+- `points`: l'area di input in pixel della composizione; `outPoints`: dove finisce sull'uscita, in pixel dello schermo.

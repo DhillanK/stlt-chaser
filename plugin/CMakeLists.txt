@@ -51,6 +51,11 @@ elseif(APPLE)
     # OpenGL is deprecated on macOS but still what FFGL hosts use.
     target_compile_definitions(stilletchaser-common PUBLIC GL_SILENCE_DEPRECATION TARGET_OS_MAC=1)
     target_link_libraries(stilletchaser-common PUBLIC "-framework OpenGL" "-framework AppKit")
+else()
+    # Linux (STLT-VJ loads the plugins there too): the system's GLEW and OpenGL.
+    find_package(OpenGL REQUIRED)
+    find_package(GLEW REQUIRED)
+    target_link_libraries(stilletchaser-common PUBLIC GLEW::GLEW OpenGL::GL)
 endif()
 
 # plugMain is the only function a host calls, and nothing in the plugins references it, so the linker
@@ -72,6 +77,7 @@ function(add_stilletchaser_plugin name)
         target_link_options(${name} PRIVATE "LINKER:-u,_plugMain" "LINKER:-u,_SetLogCallback")
     else()
         add_library(${name} MODULE ${ARGN})
+        set_target_properties(${name} PROPERTIES PREFIX "") # STLT-CHASER.so, as the plugin is named
         target_link_options(${name} PRIVATE "LINKER:-u,plugMain" "LINKER:-u,SetLogCallback")
     endif()
     target_link_libraries(${name} PRIVATE stilletchaser-common)

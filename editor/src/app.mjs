@@ -1,6 +1,8 @@
 // Wires the editor together: loads the working copy, keeps it linked to Arena's
-// Advanced Output, and connects the canvas, sequencer and panels.
+// Advanced Output (or, opened from STLT-VJ, to STLT-VJ's slices), and connects the canvas, sequencer and panels.
 import { parseAdvancedOutput } from './advancedOutput.mjs';
+import { isStltVjStage, parseStltVjStage } from './stltvjStage.mjs';
+import { useHost } from './theme.mjs';
 import * as D from './document.mjs';
 import { autoGrid, defaultFactorySettings, generate } from './factory.mjs';
 import { createEnvelopeLibrary } from './envelopes.mjs';
@@ -25,10 +27,10 @@ async function readJson(file) {
   }
 }
 
-async function readSetup(xmlPath) {
-  const text = await host.readText(xmlPath);
-  if (text === null) throw new Error(`Cannot find ${xmlPath}`);
-  return parseAdvancedOutput(text);
+async function readSetup(setupPath) {
+  const text = await host.readText(setupPath);
+  if (text === null) throw new Error(`Cannot find ${setupPath}`);
+  return isStltVjStage(setupPath) ? parseStltVjStage(text) : parseAdvancedOutput(text);
 }
 
 function emptyDocument() {
@@ -37,6 +39,7 @@ function emptyDocument() {
 
 async function boot() {
   const paths = await host.paths();
+  useHost(Boolean(paths.stltvj));
   const prefs = { bpm: 120, rate: 0, lastFile: null, ...(await readJson(paths.prefsFile)) };
   const library = (await readJson(paths.envelopesFile)) ?? createEnvelopeLibrary();
   let message = null;
@@ -48,7 +51,17 @@ async function boot() {
   } catch (error) {
     message = `Working copy unreadable, started a new one (${error.message})`;
   }
-  if (!doc) {
+  if (paths.stltvj) {
+    // Opened from STLT-VJ: always on its slices; sequences made before keep the slices that still exist.
+    try {
+      const setup = await readSetup(paths.stltvj);
+      if (doc) D.relink(doc, setup, paths.stltvj);
+      else doc = D.createDocument(setup, paths.stltvj);
+    } catch (error) {
+      doc ??= emptyDocument();
+      message = `${error.message}. Open the editor from STLT-VJ (Output > Chaser).`;
+    }
+  } else if (!doc) {
     const arena = paths.arenaOutputs.find((o) => o.exists);
     doc = arena ? D.createDocument(await readSetup(arena.path), arena.path) : emptyDocument();
     if (!arena) message = 'No Advanced Output found: use File > New to pick one.';
@@ -93,7 +106,7 @@ async function boot() {
     factorySlices,
     applyFactory,
     async newFromXml(xmlPath) {
-      const file = xmlPath ?? (await host.openDialog({ title: 'Advanced Output XML', filters: [{ name: 'Advanced Output', extensions: ['xml'] }] }));
+      const file = xmlPath ?? paths.stltvj ?? (await host.openDialog({ title: 'Advanced Output XML', filters: [{ name: 'Advanced Output', extensions: ['xml'] }] }));
       if (!file) return;
       try {
         store.replaceDocument(D.createDocument(await readSetup(file), file));
@@ -109,7 +122,10 @@ async function boot() {
       const file = await host.openDialog({ title: 'Load Stilletchaser document', defaultPath: paths.documents, filters: [{ name: 'Stilletchaser', extensions: ['stchase'] }] });
       if (!file) return;
       try {
-        store.replaceDocument(D.validateDocument(JSON.parse(await host.readText(file))));
+        const loaded = D.validateDocument(JSON.parse(await host.readText(file)));
+        // In STLT-VJ a document made for Resolume moves onto STLT-VJ's slices (matched by name).
+        if (paths.stltvj) D.relink(loaded, await readSetup(paths.stltvj), paths.stltvj);
+        store.replaceDocument(loaded);
         await store.savePrefs({ lastFile: file });
         await watchSource();
         canvas.refit();
@@ -148,7 +164,7 @@ async function boot() {
     async saveExport() {
       const options = exportOptions(store.state.prefs);
       const folder = store.state.prefs.exportFolder ?? paths.documents;
-      const source = (store.state.doc.source.path || store.state.doc.name).split(/[\\/]/).pop().replace(/\.xml$/i, '');
+      const source = paths.stltvj ? store.state.doc.name : (store.state.doc.source.path || store.state.doc.name).split(/[\\/]/).pop().replace(/\.xml$/i, '');
       const file = `${folder}\\${source} ${options.kind === 'output' ? 'Output' : 'Input'} Map.png`;
       try {
         await host.writeBinary(file, canvasToBase64(renderMap(store.state.doc, options)));
@@ -228,7 +244,7 @@ async function boot() {
     event.preventDefault();
   });
 
-  // ---- Follow Arena ----
+  // ---- Follow Arena (or STLT-VJ) ----
 
   host.onFileChanged(async (file) => {
     if (file !== store.state.doc.source.path) return;

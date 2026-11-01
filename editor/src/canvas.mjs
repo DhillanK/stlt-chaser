@@ -5,24 +5,26 @@ import { isVisibleInView, setVisibleInView, toggleSliceInStep, setSliceInStep } 
 
 import { THEME } from './theme.mjs';
 
-const COLORS = {
+// Read when a canvas is made, after the host's palette is in place.
+const colors = () => ({
   slice: THEME.sliceOff,
   hover: THEME.sliceHover,
   on: THEME.accent,
   outline: THEME.outline,
   label: THEME.textDim,
-  labelOn: '#10302a',
+  labelOn: THEME.onAccent,
   band: THEME.accentWash,
   bandLine: THEME.accent,
   grid: 'rgba(232, 232, 232, 0.45)',
   gridActive: THEME.accent,
   centre: THEME.text,
-};
+});
 const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 20;
 const GRID_HIT_PX = 6;
 
 export function createCanvas(canvas, store, { onFactoryGridChange }) {
+  const COLORS = colors();
   const ctx = canvas.getContext('2d');
   const view = { zoom: 1, panX: 0, panY: 0, fitted: false };
   let hoverId = null;

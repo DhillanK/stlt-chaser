@@ -11,6 +11,16 @@ const pluginSource = () =>
 // STLT_DATA_DIR points the editor at another folder, e.g. a demo stage for screenshots.
 const dataDir = process.env.STLT_DATA_DIR || path.join(app.getPath('appData'), 'Stilletchaser');
 
+// Opened from STLT-VJ (Output > Chaser): `--stlt-vj <stage file>` names the slices STLT-VJ writes for the
+// editor, which then follows them instead of Resolume's Advanced Output. STLT-VJ also sets STLT_DATA_DIR,
+// so its sequences stay apart from a Resolume setup's.
+function stltvjStage(argv) {
+  const at = argv.indexOf('--stlt-vj');
+  return at >= 0 && argv[at + 1] ? path.resolve(argv[at + 1]) : process.env.STLT_VJ_STAGE || null;
+}
+const stltvj = stltvjStage(process.argv);
+if (stltvj) app.setPath('userData', path.join(app.getPath('appData'), 'STLT-CHASER for STLT-VJ'));
+
 function arenaOutputs() {
   const documents = app.getPath('documents');
   return ['Resolume Arena', 'Resolume Avenue'].map((product) => {
@@ -34,8 +44,8 @@ function createWindow() {
     height: 920,
     minWidth: 900,
     minHeight: 600,
-    backgroundColor: '#333333',
-    title: 'STLT-CHASER',
+    backgroundColor: stltvj ? '#0f1114' : '#333333',
+    title: stltvj ? 'STLT-CHASER for STLT-VJ' : 'STLT-CHASER',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
@@ -52,6 +62,7 @@ function createWindow() {
     envelopesFile: path.join(dataDir, 'envelopes.json'),
     prefsFile: path.join(dataDir, 'prefs.json'),
     arenaOutputs: arenaOutputs(),
+    stltvj,
     documents: app.getPath('documents'),
     version: app.getVersion(),
   }));
@@ -89,7 +100,7 @@ function createWindow() {
   // First run, or after an update: offer to put the plugins into Resolume.
   win.webContents.once('did-finish-load', async () => {
     const status = plugins.pluginStatus(pluginSource(), app.getPath('documents'));
-    if (!app.isPackaged || !status.needsInstall) return;
+    if (stltvj || !app.isPackaged || !status.needsInstall) return;
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
       buttons: ['Install', 'Later'],
@@ -110,5 +121,16 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+// One editor at a time: Output > Chaser in STLT-VJ brings the open one to the front.
+if (!app.requestSingleInstanceLock()) app.quit();
+else {
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (!win) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+  app.whenReady().then(createWindow);
+}
 app.on('window-all-closed', () => app.quit());

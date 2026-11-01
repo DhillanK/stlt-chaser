@@ -3,6 +3,7 @@ import * as D from './document.mjs';
 import { DIRECTIONS, defaultFactorySettings, maxBlock } from './factory.mjs';
 import { addEnvelope, duplicateEnvelope, removeEnvelope } from './envelopes.mjs';
 import { renderList, escapeHtml } from './listView.mjs';
+import { HOST_NAME } from './theme.mjs';
 
 export function createPanels(root, store, actions) {
   const ui = () => store.state.ui;
@@ -52,8 +53,32 @@ export function createPanels(root, store, actions) {
       <button class="btn wide" data-act="install-plugins" ${available.length && targets.length ? '' : 'disabled'}>Install / update plugins</button>
       <div class="hint">${escapeHtml(pluginMessage || 'Copies STLT-CHASER, STLT-WIPER and STLT-OUTLINER into Extra Effects. Close Resolume first.')}</div>`;
   }
+  // Opened from STLT-VJ: the document always follows STLT-VJ's slices, and the effects come with STLT-VJ.
+  function renderStltVjFile() {
+    const { prefs } = store.state;
+    root.innerHTML = `
+      <div class="menu-list">
+        <button class="menu-item" data-act="new" title="A new document on STLT-VJ's slices">New</button>
+        <button class="menu-item" data-act="load">Load</button>
+        <button class="menu-item" data-act="save-as">Save As…</button>
+        <button class="menu-item" data-act="relink" title="Read STLT-VJ's slices again">Relink</button>
+      </div>
+      <div class="hint">${escapeHtml(prefs.lastFile ?? 'Not saved as a file yet. Everything is kept in the working copy the effects read.')}</div>
+      <div class="hint">Linked to STLT-VJ's Advanced Output: change the slices there and they update here.</div>
+      <h3>Effects</h3>
+      <div class="hint">STLT-CHASER, STLT-WIPER and STLT-OUTLINER come with STLT-VJ: drag them from its Effects panel onto the composition, a layer or a clip, and pick the Sequence there.</div>`;
+    root.onclick = (event) => {
+      const act = event.target.closest('button')?.dataset.act;
+      if (act === 'new') actions.newFromXml(null);
+      else if (act === 'load') actions.load();
+      else if (act === 'save-as') actions.saveAs();
+      else if (act === 'relink') actions.relinkTo(store.state.paths.stltvj);
+    };
+  }
+
   function renderFile() {
     const { paths, prefs } = store.state;
+    if (paths.stltvj) return renderStltVjFile();
     const installed = paths.arenaOutputs.filter((o) => o.exists);
     const versions = chooseVersion
       ? installed.map((o) => `<button class="menu-item sub" data-new="${escapeHtml(o.path)}">${escapeHtml(o.label)}</button>`).join('') +
@@ -231,7 +256,7 @@ export function createPanels(root, store, actions) {
 
   function renderEnvelopes() {
     if (!root.querySelector('.env-list')) {
-      root.innerHTML = '<h3>Envelopes</h3><div class="env-list"></div><div class="hint">Shared by every project. Pick one in the plugin\'s Envelope menu in Resolume.</div>';
+      root.innerHTML = `<h3>Envelopes</h3><div class="env-list"></div><div class="hint">Shared by every project. Pick one in the effect's Envelope menu in ${HOST_NAME}.</div>`;
     }
     renderList(root.querySelector('.env-list'), {
       items: store.state.library.envelopes,
@@ -273,7 +298,7 @@ export function createPanels(root, store, actions) {
         <button class="menu-item" data-act="folder">Set Folder</button>
         <button class="menu-item" data-act="save">Save</button>
       </div>
-      <div class="hint">${kind === 'input' ? 'The composition: where each slice takes its content from. Use it as a template for content.' : "Each screen's output: where Arena sends each slice."}</div>`;
+      <div class="hint">${kind === 'input' ? 'The composition: where each slice takes its content from. Use it as a template for content.' : "Each screen's output: where " + (HOST_NAME === 'STLT-VJ' ? 'STLT-VJ' : 'Arena') + ' sends each slice.'}</div>`;
     root.onclick = (event) => {
       const act = event.target.closest('button')?.dataset.act;
       if (act === 'folder') actions.setExportFolder();

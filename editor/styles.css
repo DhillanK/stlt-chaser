@@ -21,6 +21,22 @@
   color: var(--text);
 }
 
+
+/* Opened from STLT-VJ: its own greys and powder blue (src/theme.mjs has the canvas colours). */
+body.host-stltvj {
+  --bg: #0f1114;
+  --bg-raised: #14161a;
+  --bg-deep: #0b0c0f;
+  --bg-input: #1e2127;
+  --bg-hover: #272b32;
+  --line: #08090b;
+  --header: #2a3a4c;
+  --text: #e6e8ec;
+  --text-dim: #8a92a0;
+  --accent: #96bee4;
+  --on-accent: #0a121e;
+  --outline: #6a7b8f;
+}
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); overflow: hidden; user-select: none; }
 button, input, select { font: inherit; color: inherit; }

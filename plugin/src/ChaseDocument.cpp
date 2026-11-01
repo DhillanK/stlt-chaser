@@ -9,6 +9,9 @@
 #include <sstream>
 #include <unordered_map>
 #include "json.hpp"
+#if defined( _WIN32 )
+#include <windows.h>
+#endif
 
 namespace stilletchaser
 {
@@ -202,9 +205,25 @@ void ParseEnvelopes( const json& j, ChaseDocument& doc )
 }
 }// namespace
 
-// Where the editor keeps its working copy: Electron's appData folder for the app.
+// Where the editor keeps its working copy: Electron's appData folder for the app, or STLT_DATA_DIR when the
+// host sets it (STLT-VJ does, so its sequences stay apart from a Resolume setup's).
 std::string DataDirectory()
 {
+#if defined( _WIN32 )
+	// Read from the process environment itself: a host that sets the variable while running may use another C runtime.
+	wchar_t custom[ 4096 ];
+	DWORD length = GetEnvironmentVariableW( L"STLT_DATA_DIR", custom, 4096 );
+	if( length > 0 && length < 4096 )
+	{
+		int size = WideCharToMultiByte( CP_UTF8, 0, custom, (int)length, nullptr, 0, nullptr, nullptr );
+		std::string utf8( (size_t)size, '\0' );
+		WideCharToMultiByte( CP_UTF8, 0, custom, (int)length, utf8.data(), size, nullptr, nullptr );
+		return utf8;
+	}
+#else
+	if( const char* custom = std::getenv( "STLT_DATA_DIR" ); custom && *custom )
+		return custom;
+#endif
 #if defined( _WIN32 )
 	const char* appData = std::getenv( "APPDATA" );
 	return std::string( appData ? appData : "." ) + "\\Stilletchaser";
