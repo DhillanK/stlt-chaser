@@ -73,7 +73,12 @@ enum ParamID
 	PID_OUTLINE_FLIP,
 	PID_OUTLINE_ODD_EVEN,
 	PID_OUTLINE_ENVELOPE,
+
+	// One button per sequence of the document (the first SEQUENCE_BUTTONS): pressing it, or its MIDI note, chooses
+	// that sequence. Shown for the sequences there are, named after them; the one playing is marked.
+	PID_SEQUENCE_BUTTON,
 };
+static const int SEQUENCE_BUTTONS = 32;
 
 enum OutlineTarget
 {
@@ -234,6 +239,13 @@ Stilletchaser::Stilletchaser()
 	for( unsigned int id = PID_OUTLINER; id <= PID_OUTLINE_ENVELOPE; ++id )
 		SetParamGroup( id, "Outliner" );
 
+	for( int i = 0; i < SEQUENCE_BUTTONS; ++i )
+	{
+		const std::string name = "Sequence " + std::to_string( i + 1 );
+		SetParamInfo( PID_SEQUENCE_BUTTON + i, name.c_str(), FF_TYPE_EVENT, false );
+		SetParamGroup( PID_SEQUENCE_BUTTON + i, "Sequences" );
+	}
+
 	doc        = DocumentWatcher::Instance().Current();
 	docVersion = DocumentWatcher::Instance().Version();
 	RefreshMenus( false );
@@ -264,8 +276,11 @@ void Stilletchaser::UpdateVisibility( bool raiseEvents )
 {
 	const bool chaser = Option( driver, 2 ) == DRIVER_CHASER;
 	const bool curve  = std::lround( envelope ) > 0;
-	for( unsigned int id : { PID_SEQUENCE, PID_STEP, PID_ECHOES, PID_ENVELOPE } )
+	for( unsigned int id : { PID_STEP, PID_ECHOES, PID_ENVELOPE } )
 		SetParamVisibility( id, chaser, raiseEvents );
+	// The sequences are buttons; the menu only says there are none yet (it stays a parameter, for saved settings).
+	SetParamVisibility( PID_SEQUENCE, chaser && doc->sequences.empty(), raiseEvents );
+	UpdateSequenceButtons( raiseEvents );
 	SetParamVisibility( PID_SUSTAIN, chaser && !curve, raiseEvents );
 	SetParamVisibility( PID_RELEASE, chaser && !curve, raiseEvents );
 
@@ -293,6 +308,22 @@ void Stilletchaser::UpdateVisibility( bool raiseEvents )
 	SetParamVisibility( PID_OUTLINE_FEATHER, outlining && !animate, raiseEvents );
 	for( unsigned int id = PID_OUTLINE_PHASE; id <= PID_OUTLINE_ENVELOPE; ++id )
 		SetParamVisibility( id, outlining && animate, raiseEvents );
+}
+
+void Stilletchaser::UpdateSequenceButtons( bool raiseEvents )
+{
+	const bool chaser  = Option( driver, 2 ) == DRIVER_CHASER;
+	const int count    = (int)doc->sequences.size();
+	const int selected = count > 0 ? Option( sequence, count ) : -1;
+	for( int i = 0; i < SEQUENCE_BUTTONS; ++i )
+	{
+		const bool shown = chaser && i < count;
+		SetParamVisibility( PID_SEQUENCE_BUTTON + i, shown, raiseEvents );
+		std::string name = i < count ? doc->sequences[ i ].name : "Sequence " + std::to_string( i + 1 );
+		if( i == selected )
+			name = "\xe2\x96\xb6 " + name; // the one playing
+		SetParamDisplayName( PID_SEQUENCE_BUTTON + i, name, raiseEvents );
+	}
 }
 
 float Stilletchaser::WipeParam( unsigned int index ) const
@@ -690,7 +721,10 @@ FFResult Stilletchaser::SetFloatParameter( unsigned int index, float value )
 		driver = value;
 		UpdateVisibility( true );
 		break;
-	case PID_SEQUENCE: sequence = value; break;
+	case PID_SEQUENCE:
+		sequence = value;
+		UpdateSequenceButtons( true );
+		break;
 	case PID_STEP:     step = value; break;
 	case PID_SCALING:  scaling = value; break;
 	case PID_VIEW:     view = value; break;
@@ -733,6 +767,17 @@ FFResult Stilletchaser::SetFloatParameter( unsigned int index, float value )
 			outline[ index - PID_OUTLINER ] = value;
 			if( index == PID_OUTLINER || index == PID_OUTLINE_ANIMATE )
 				UpdateVisibility( true );
+		}
+		else if( index >= PID_SEQUENCE_BUTTON && index < PID_SEQUENCE_BUTTON + SEQUENCE_BUTTONS )
+		{
+			// A press (not the release) chooses the sequence; the menu's value follows, for the host to show.
+			const int chosen = (int)( index - PID_SEQUENCE_BUTTON );
+			if( value > 0.5f && chosen < (int)doc->sequences.size() )
+			{
+				sequence = (float)chosen;
+				RaiseParamEvent( PID_SEQUENCE, FF_EVENT_FLAG_VALUE );
+				UpdateSequenceButtons( true );
+			}
 		}
 		else
 			return FF_FAIL;

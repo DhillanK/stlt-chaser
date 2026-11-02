@@ -46,6 +46,8 @@ private:
 
 	void RefreshMenus( bool raiseEvents );
 	void UpdateVisibility( bool raiseEvents );
+	// The sequence buttons: shown for the document's sequences, named after them, the chosen one marked.
+	void UpdateSequenceButtons( bool raiseEvents );
 	// Opacity of every slice for the current step position.
 	void ComputeLevels( const stilletchaser::ChaseDocument& doc, std::vector< float >& levels ) const;
 	// How long ago each slice's content comes from: frames with the Frames unit, seconds otherwise.

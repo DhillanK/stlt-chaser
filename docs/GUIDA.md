@@ -20,7 +20,7 @@ Chase e screen bump sulle slice dell'Advanced Output di Resolume Arena: un edito
 3. Crea le sequenze: scegli un passo in basso e clicca le slice da accendere. Salva da solo, a ogni modifica.
 4. In Arena aggiungi l'effetto **STLT-CHASER** a un layer, un gruppo, una clip o alla composizione.
    - *Driver*: **Chaser** accende le slice seguendo la sequenza; **None** le tiene tutte accese (per usare solo i moduli, per esempio il Delayer).
-   - *Sequence*: quale sequenza suonare (i nomi arrivano dall'editor).
+   - **Sequences**: un pulsante per ogni sequenza scritta nell'editor, col suo nome; quella che suona ha ▶ davanti. Mappa i pulsanti su pad MIDI o tasti per cambiare sequenza dal vivo.
    - *Step*: anima questo parametro (BPM Sync, Timeline o FFT): 0 → 1 attraversa tutta la sequenza.
    - *Scaling*: Mask (ritaglia), Fill (adatta il contenuto a ogni slice, mantenendo le proporzioni), Stretch (lo deforma per riempirla).
    - *View*: limita l'effetto alle slice di una view.

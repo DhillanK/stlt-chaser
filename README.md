@@ -31,12 +31,12 @@ Requirements: Resolume Arena or Avenue 7.4 or later (tested with Arena 7.23 on W
 1. Set up your stage in Resolume's **Advanced Output** and click *Save & Close*.
 2. Open the STLT-CHASER editor: it loads your slices automatically.
 3. Pick a step at the bottom and click the slices that should light up on it. Everything saves as you go.
-4. In Resolume add the **STLT-CHASER** effect to a layer, choose the *Sequence*, and animate *Step* with BPM sync.
+4. In Resolume add the **STLT-CHASER** effect to a layer, press the button of a sequence (*Sequences*), and animate *Step* with BPM sync.
 
 ## The effects
 
 **STLT-CHASER** – lights slices step by step through a sequence.
-*Driver* (Chaser, or None to keep every slice lit), *Sequence*, *Step* (0→1 runs through the sequence; animate it with BPM sync, the timeline or FFT), *Scaling* (Mask, Fill, Stretch), *View*, *Echoes*, *Envelope* or *Sustain / Release*.
+*Driver* (Chaser, or None to keep every slice lit), the **Sequences** buttons (one per sequence of the editor, named after it; the one playing is marked ▶; map them to MIDI pads or keys to switch sequences live), *Step* (0→1 runs through the sequence; animate it with BPM sync, the timeline or FFT), *Scaling* (Mask, Fill, Stretch), *View*, *Echoes*, *Envelope* or *Sustain / Release*.
 Its **Delayer** module shows each slice as the content was some time ago, with the delay spread over the stage by a *Delay Sequence* (first step: no delay, last step: the full delay), in frames, seconds or beats.
 Its **Wiper** module runs gradient wipes through the slices of a second sequence (*Wipe Sequence*, *Wipe Step* and the same controls as STLT-WIPER), showing the video or a *Solid Color*. Chase and wipes add up: a slice shows wherever either lights it, so one STLT-CHASER on the composition does both.
 Its **Outliner** module draws outlines on top with the same controls as STLT-OUTLINER. *Outline Target*: *Lit Slices* follows the chase and the wipes, *All Slices* outlines the whole view; *Outlines Only* hides the video and keeps just the outlines.

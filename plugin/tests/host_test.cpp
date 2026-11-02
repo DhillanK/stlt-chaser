@@ -94,6 +94,22 @@ struct Host
 		in.UIntValue = index;
 		return Call( FF_GET_PRAMETER_VISIBILITY, in ).UIntValue != 0;
 	}
+	std::string DisplayName( int index )
+	{
+		FFMixed in;
+		in.UIntValue     = index;
+		const char* name = (const char*)Call( FF_GET_PARAM_DISPLAY_NAME, in ).PointerValue;
+		return name ? name : "";
+	}
+	float Get( int index )
+	{
+		FFMixed in;
+		in.UIntValue = index;
+		FFMixed v    = Call( FF_GET_PARAMETER, in );
+		float value;
+		std::memcpy( &value, &v.UIntValue, sizeof( float ) );
+		return value;
+	}
 	std::string ElementName( int param, int element )
 	{
 		GetParameterElementNameStruct args{ (FFUInt32)param, (FFUInt32)element };
@@ -175,6 +191,22 @@ int main( int argc, char** argv )
 	Check( host.ElementName( sequence, 0 ) == "Chase" && host.ElementName( sequence, 1 ) == "Spread", "sequence menu lists the document's sequences" );
 	Check( host.ElementName( view, 1 ) == "Only B", "view menu lists the document's views" );
 	Check( !host.Visible( delaySeq ), "delayer controls hidden while the Delayer is off" );
+
+	// The sequences are buttons (for MIDI): one per sequence of the document, named after it, the chosen one marked;
+	// the menu stays hidden while there are sequences.
+	{
+		const int first = host.FindParam( "Sequence 1" ), second = host.FindParam( "Sequence 2" ), third = host.FindParam( "Sequence 3" );
+		Check( first >= 0 && second == first + 1, "sequence buttons are there" );
+		Check( host.Visible( first ) && host.Visible( second ) && !host.Visible( third ), "a button for each of the two sequences" );
+		Check( !host.Visible( sequence ), "the sequence menu is hidden: the buttons replace it" );
+		Check( host.DisplayName( first ) == "\xe2\x96\xb6 Chase" && host.DisplayName( second ) == "Spread", "buttons named after the sequences, the chosen one marked" );
+		host.Set( second, 1.f );
+		host.Set( second, 0.f );
+		Check( host.Get( sequence ) == 1.f, "pressing a button chooses its sequence" );
+		Check( host.DisplayName( first ) == "Chase" && host.DisplayName( second ) == "\xe2\x96\xb6 Spread", "the mark moves to the chosen sequence" );
+		host.Set( sequence, 0.f );
+		Check( host.DisplayName( first ) == "\xe2\x96\xb6 Chase", "choosing from the menu moves the mark too" );
+	}
 
 	// Input texture and output framebuffer.
 	GLuint input, output, fbo;
