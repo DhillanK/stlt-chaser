@@ -1,4 +1,4 @@
-// Reads the stage STLT-VJ writes for the editor (chaser-stage.json, next to its Advanced Output setup):
+// Reads the stage STLT writes for the editor (chaser-stage.json, next to its Advanced Output setup):
 // the composition size, the screens and every slice's input (composition pixels) and output (screen pixels),
 // already in the shape parseAdvancedOutput returns.
 
@@ -20,12 +20,12 @@ export function parseStltVjStage(text) {
   try {
     root = JSON.parse(text);
   } catch {
-    throw new Error('The STLT-VJ stage is not valid JSON');
+    throw new Error('The STLT stage is not valid JSON');
   }
-  if (!root || root.format !== 'stlt-vj-chaser-stage') throw new Error('Not an STLT-VJ stage');
+  if (!root || root.format !== 'stlt-vj-chaser-stage') throw new Error('Not an STLT stage');
   const compWidth = Number(root.compWidth);
   const compHeight = Number(root.compHeight);
-  if (!(compWidth > 0 && compHeight > 0)) throw new Error('No composition size in the STLT-VJ stage');
+  if (!(compWidth > 0 && compHeight > 0)) throw new Error('No composition size in the STLT stage');
 
   const screens = (Array.isArray(root.screens) ? root.screens : []).map((s, i) => ({
     id: String(s.id ?? `screen-${i + 1}`),
@@ -45,7 +45,7 @@ export function parseStltVjStage(text) {
   return { compWidth, compHeight, screens, slices };
 }
 
-// The setup file at `path`: STLT-VJ's stage (.json) or Resolume's AdvancedOutput.xml.
+// The setup file at `path`: STLT's stage (.json) or Resolume's AdvancedOutput.xml.
 export function isStltVjStage(path) {
   return /\.json$/i.test(path ?? '');
 }

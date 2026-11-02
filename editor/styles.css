@@ -22,7 +22,7 @@
 }
 
 
-/* Opened from STLT-VJ: its own greys and powder blue (src/theme.mjs has the canvas colours). */
+/* Opened from STLT: its own greys and powder blue (src/theme.mjs has the canvas colours). */
 body.host-stltvj {
   --bg: #0f1114;
   --bg-raised: #14161a;

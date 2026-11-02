@@ -11,14 +11,15 @@ const pluginSource = () =>
 // STLT_DATA_DIR points the editor at another folder, e.g. a demo stage for screenshots.
 const dataDir = process.env.STLT_DATA_DIR || path.join(app.getPath('appData'), 'Stilletchaser');
 
-// Opened from STLT-VJ (Output > Chaser): `--stlt-vj <stage file>` names the slices STLT-VJ writes for the
-// editor, which then follows them instead of Resolume's Advanced Output. STLT-VJ also sets STLT_DATA_DIR,
+// Opened from STLT (Output > Chaser): `--stlt-vj <stage file>` names the slices STLT writes for the
+// editor, which then follows them instead of Resolume's Advanced Output. STLT also sets STLT_DATA_DIR,
 // so its sequences stay apart from a Resolume setup's.
 function stltvjStage(argv) {
   const at = argv.indexOf('--stlt-vj');
   return at >= 0 && argv[at + 1] ? path.resolve(argv[at + 1]) : process.env.STLT_VJ_STAGE || null;
 }
 const stltvj = stltvjStage(process.argv);
+// The folder keeps the program's old name (STLT-VJ), so the editor's own settings stay where they are.
 if (stltvj) app.setPath('userData', path.join(app.getPath('appData'), 'STLT-CHASER for STLT-VJ'));
 
 function arenaOutputs() {
@@ -45,7 +46,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: stltvj ? '#0f1114' : '#333333',
-    title: stltvj ? 'STLT-CHASER for STLT-VJ' : 'STLT-CHASER',
+    title: stltvj ? 'STLT-CHASER for STLT' : 'STLT-CHASER',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
@@ -121,7 +122,7 @@ function createWindow() {
   });
 }
 
-// One editor at a time: Output > Chaser in STLT-VJ brings the open one to the front.
+// One editor at a time: Output > Chaser in STLT brings the open one to the front.
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => {

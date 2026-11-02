@@ -65,11 +65,11 @@ Effects in Resolume work in a chain: each one only sees what the one above lets 
 
 The working document lives in `%APPDATA%\Stilletchaser` on Windows and `~/Library/Application Support/Stilletchaser` on macOS; see [docs/FORMAT.md](docs/FORMAT.md).
 
-## With STLT-VJ
+## With STLT
 
-[STLT-VJ](https://github.com/alfonsostillet/STLT) ships this editor and the three effects. *Output → Chaser...* in STLT-VJ opens the editor on STLT-VJ's own Advanced Output (in STLT-VJ's blue): the slices update as you change them there. Add STLT-CHASER, STLT-WIPER or STLT-OUTLINER from STLT-VJ's Effects panel to the composition, a layer or a clip, as in Resolume. The sequences are kept in STLT-VJ's settings folder (`chaser`), apart from a Resolume setup's.
+[STLT](https://github.com/alfonsostillet/STLT) ships this editor and the three effects. *Output → Chaser...* in STLT opens the editor on STLT's own Advanced Output (in STLT's blue): the slices update as you change them there. Add STLT-CHASER, STLT-WIPER or STLT-OUTLINER from STLT's Effects panel to the composition, a layer or a clip, as in Resolume. The sequences are kept in STLT's settings folder (`chaser`), apart from a Resolume setup's.
 
-For this the editor takes `--stlt-vj <stage file>` (the slices STLT-VJ writes, see [docs/FORMAT.md](docs/FORMAT.md)), and the editor and the effects read `STLT_DATA_DIR` for the folder of the working copy.
+For this the editor takes `--stlt-vj <stage file>` (the slices STLT writes, see [docs/FORMAT.md](docs/FORMAT.md)), and the editor and the effects read `STLT_DATA_DIR` for the folder of the working copy.
 
 ## Building from source
 

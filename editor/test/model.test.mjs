@@ -163,7 +163,7 @@ test('envelope curve evaluation and LUT', () => {
   assert.ok(library.envelopes[0].lut[0] > 0.99 && library.envelopes[0].lut[255] < 0.01);
 });
 
-test('reads the stage STLT-VJ writes and relinks a document onto it', async () => {
+test('reads the stage STLT writes and relinks a document onto it', async () => {
   const { parseStltVjStage, isStltVjStage } = await import('../src/stltvjStage.mjs');
   const stage = {
     format: 'stlt-vj-chaser-stage',

@@ -1,5 +1,5 @@
 // Wires the editor together: loads the working copy, keeps it linked to Arena's
-// Advanced Output (or, opened from STLT-VJ, to STLT-VJ's slices), and connects the canvas, sequencer and panels.
+// Advanced Output (or, opened from STLT, to STLT's slices), and connects the canvas, sequencer and panels.
 import { parseAdvancedOutput } from './advancedOutput.mjs';
 import { isStltVjStage, parseStltVjStage } from './stltvjStage.mjs';
 import { useHost } from './theme.mjs';
@@ -52,14 +52,14 @@ async function boot() {
     message = `Working copy unreadable, started a new one (${error.message})`;
   }
   if (paths.stltvj) {
-    // Opened from STLT-VJ: always on its slices; sequences made before keep the slices that still exist.
+    // Opened from STLT: always on its slices; sequences made before keep the slices that still exist.
     try {
       const setup = await readSetup(paths.stltvj);
       if (doc) D.relink(doc, setup, paths.stltvj);
       else doc = D.createDocument(setup, paths.stltvj);
     } catch (error) {
       doc ??= emptyDocument();
-      message = `${error.message}. Open the editor from STLT-VJ (Output > Chaser).`;
+      message = `${error.message}. Open the editor from STLT (Output > Chaser).`;
     }
   } else if (!doc) {
     const arena = paths.arenaOutputs.find((o) => o.exists);
@@ -123,7 +123,7 @@ async function boot() {
       if (!file) return;
       try {
         const loaded = D.validateDocument(JSON.parse(await host.readText(file)));
-        // In STLT-VJ a document made for Resolume moves onto STLT-VJ's slices (matched by name).
+        // In STLT a document made for Resolume moves onto STLT's slices (matched by name).
         if (paths.stltvj) D.relink(loaded, await readSetup(paths.stltvj), paths.stltvj);
         store.replaceDocument(loaded);
         await store.savePrefs({ lastFile: file });
@@ -244,7 +244,7 @@ async function boot() {
     event.preventDefault();
   });
 
-  // ---- Follow Arena (or STLT-VJ) ----
+  // ---- Follow Arena (or STLT) ----
 
   host.onFileChanged(async (file) => {
     if (file !== store.state.doc.source.path) return;

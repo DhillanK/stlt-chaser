@@ -206,7 +206,7 @@ void ParseEnvelopes( const json& j, ChaseDocument& doc )
 }// namespace
 
 // Where the editor keeps its working copy: Electron's appData folder for the app, or STLT_DATA_DIR when the
-// host sets it (STLT-VJ does, so its sequences stay apart from a Resolume setup's).
+// host sets it (STLT does, so its sequences stay apart from a Resolume setup's).
 std::string DataDirectory()
 {
 #if defined( _WIN32 )

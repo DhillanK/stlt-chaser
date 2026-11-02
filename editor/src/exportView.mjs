@@ -93,7 +93,7 @@ export function createExportView(root, store) {
       drawPreview(map, options.transparent);
       const overlaps = options.kind === 'output' ? overlappingOutputs(store.state.doc) : 0;
       note.hidden = overlaps === 0;
-      note.textContent = `${overlaps} slices are sent to exactly the same place on the output, so they cover each other here. Set their Output Transformation in ${HOST_NAME === 'STLT-VJ' ? "STLT-VJ's" : "Arena's"} Advanced Output to see them apart.`;
+      note.textContent = `${overlaps} slices are sent to exactly the same place on the output, so they cover each other here. Set their Output Transformation in ${HOST_NAME === 'STLT' ? "STLT's" : "Arena's"} Advanced Output to see them apart.`;
     },
   };
   new ResizeObserver(() => view.render()).observe(preview);

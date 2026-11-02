@@ -1,5 +1,5 @@
 // Colours for what the editor draws on canvases; the same palette as styles.css,
-// taken from Resolume Arena 7. Opened from STLT-VJ, the editor takes STLT-VJ's palette instead
+// taken from Resolume Arena 7. Opened from STLT, the editor takes STLT's palette instead
 // (useHost, with body.host-stltvj in styles.css).
 export const THEME = {
   stage: '#333333',
@@ -31,13 +31,13 @@ const STLTVJ = {
   header: '#2a3a4c',
 };
 
-// The program the effects run in, for the editor's wording: 'Resolume' or 'STLT-VJ'.
+// The program the effects run in, for the editor's wording: 'Resolume' or 'STLT'.
 export let HOST_NAME = 'Resolume';
 
 export function useHost(stltvj) {
   if (!stltvj) return;
-  HOST_NAME = 'STLT-VJ';
+  HOST_NAME = 'STLT';
   Object.assign(THEME, STLTVJ);
   document.body.classList.add('host-stltvj');
-  document.title = 'STLT-CHASER for STLT-VJ';
+  document.title = 'STLT-CHASER for STLT';
 }
