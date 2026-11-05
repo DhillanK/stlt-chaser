@@ -23,6 +23,9 @@
       }
       return null;
     },
+    async listDir() {
+      return [];
+    },
     async writeText(file, text) {
       files.set(file, text);
     },

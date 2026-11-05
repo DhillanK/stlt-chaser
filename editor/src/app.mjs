@@ -1,6 +1,6 @@
 // Wires the editor together: loads the working copy, keeps it linked to Arena's
 // Advanced Output (or, opened from STLT, to STLT's slices), and connects the canvas, sequencer and panels.
-import { parseAdvancedOutput } from './advancedOutput.mjs';
+import { parseAdvancedOutput, presetReference, matchPreset, presetFolderFor } from './advancedOutput.mjs';
 import { isStltVjStage, parseStltVjStage } from './stltvjStage.mjs';
 import { useHost } from './theme.mjs';
 import * as D from './document.mjs';
@@ -27,10 +27,36 @@ async function readJson(file) {
   }
 }
 
+// The preset file the last read stub pointed to (Arena 7.28+), watched alongside the stub.
+let presetPath = null;
+let presetNote = null;
+
 async function readSetup(setupPath) {
   const text = await host.readText(setupPath);
   if (text === null) throw new Error(`Cannot find ${setupPath}`);
-  return isStltVjStage(setupPath) ? parseStltVjStage(text) : parseAdvancedOutput(text);
+  if (isStltVjStage(setupPath)) return parseStltVjStage(text);
+  presetPath = null;
+  presetNote = null;
+  const reference = presetReference(text);
+  if (!reference) return parseAdvancedOutput(text);
+
+  // A 7.28+ stub: the setup is in the named preset.
+  const folder = presetFolderFor(setupPath);
+  const files = (await host.listDir(folder)) ?? [];
+  let name = matchPreset(reference, files);
+  if (!name) {
+    // Arena saves the stub and the active preset together, so the newest preset is the best guess.
+    const newest = files.filter((f) => /\.xml$/i.test(f.name)).sort((a, b) => b.mtimeMs - a.mtimeMs)[0];
+    if (!newest) throw new Error(`AdvancedOutput.xml points to preset "${reference}", but no presets were found in ${folder}`);
+    name = newest.name;
+    presetNote = `Preset "${reference}" not found, using newest preset "${name.replace(/\.xml$/i, '')}"`;
+  }
+  const sep = folder.includes('\\') ? '\\' : '/';
+  const file = `${folder}${sep}${name}`;
+  const presetText = await host.readText(file);
+  if (presetText === null) throw new Error(`Cannot read preset ${file}`);
+  presetPath = file;
+  return parseAdvancedOutput(presetText);
 }
 
 function emptyDocument() {
@@ -95,12 +121,15 @@ async function boot() {
     }, { coalesce });
   }
 
+  // Follows the source file and, for an Arena 7.28+ stub, the preset it points to:
+  // saving in Advanced Output may rewrite only the preset.
   async function watchSource() {
-    if (watchedSource) await host.unwatch(watchedSource);
-    watchedSource = store.state.doc.source.path || null;
-    if (watchedSource) await host.watch(watchedSource);
+    const wanted = [store.state.doc.source.path, presetPath].filter(Boolean);
+    for (const file of watchedFiles) if (!wanted.includes(file)) await host.unwatch(file);
+    for (const file of wanted) if (!watchedFiles.includes(file)) await host.watch(file);
+    watchedFiles = wanted;
   }
-  let watchedSource = null;
+  let watchedFiles = [];
 
   const actions = {
     factorySlices,
@@ -246,15 +275,27 @@ async function boot() {
 
   // ---- Follow Arena (or STLT) ----
 
-  host.onFileChanged(async (file) => {
-    if (file !== store.state.doc.source.path) return;
-    try {
-      const setup = await readSetup(file);
-      store.edit((d) => D.relink(d, setup, file));
-      say(`Advanced Output updated: ${setup.slices.length} slices`);
-    } catch (error) {
-      say(error.message, true);
-    }
+  // Arena rewrites the stub and the preset together: wait for both, then reload once.
+  let reloadTimer = null;
+  host.onFileChanged((file) => {
+    if (!watchedFiles.includes(file)) return;
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(async () => {
+      const source = store.state.doc.source.path;
+      if (!source) return;
+      try {
+        const setup = await readSetup(source);
+        const before = store.state.doc.source;
+        const resized = before.compWidth !== setup.compWidth || before.compHeight !== setup.compHeight;
+        store.edit((d) => D.relink(d, setup, source));
+        await watchSource();
+        if (resized) canvas.refit();
+        const from = presetPath ? ` (preset ${presetPath.split(/[\\/]/).pop().replace(/\.xml$/i, '')})` : '';
+        say(presetNote ?? `Advanced Output updated: ${setup.slices.length} slices${from}`, Boolean(presetNote));
+      } catch (error) {
+        say(error.message, true);
+      }
+    }, 400);
   });
   await watchSource();
 

@@ -55,6 +55,42 @@ function outputPoints(type, body) {
   return found ? vertices(found.body) : [];
 }
 
+// ---- Arena 7.28+ preset stubs ----
+// From 7.28 Arena can write Preferences/AdvancedOutput.xml as a stub that only names the
+// active preset (<ScreenSetup presetFile="..."> with no size, screens or slices); the setup
+// itself lives in Presets/Advanced Output/<preset>.xml. The name in presetFile is not always
+// the file name verbatim (e.g. "P3.9" is written as "P39"), so names are compared loosely.
+
+/** The preset a stub points to, or null when `xml` carries its own setup. */
+export function presetReference(xml) {
+  if (/<CurrentCompositionTextureSize[\s>/]/.test(xml)) return null;
+  const root = xml.match(/<ScreenSetup\s[^>]*>/);
+  const name = root ? attribute(root[0], 'presetFile').trim() : '';
+  return name || null;
+}
+
+const looseName = (name) => name.replace(/\.xml$/i, '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * The preset file for `reference` among `files` ([{name, mtimeMs}] in the presets folder):
+ * an exact name first, then a loose match (newest if several). Null when nothing matches.
+ */
+export function matchPreset(reference, files) {
+  const xml = files.filter((f) => /\.xml$/i.test(f.name));
+  const exact = xml.find((f) => f.name.replace(/\.xml$/i, '') === reference);
+  if (exact) return exact.name;
+  const want = looseName(reference);
+  const loose = xml.filter((f) => looseName(f.name) === want).sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return loose.length ? loose[0].name : null;
+}
+
+/** Presets folder next to a Preferences/AdvancedOutput.xml path, keeping its separator style. */
+export function presetFolderFor(advancedOutputPath) {
+  const sep = advancedOutputPath.includes('\\') ? '\\' : '/';
+  const parts = advancedOutputPath.split(/[\\/]/);
+  return [...parts.slice(0, -2), 'Presets', 'Advanced Output'].join(sep);
+}
+
 /**
  * @returns {{compWidth:number, compHeight:number, screens:Array, slices:Array}}
  * Slices come in the order Arena's slice panel shows them (oldest first within each screen).
