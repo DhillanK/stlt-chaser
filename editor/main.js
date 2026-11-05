@@ -67,6 +67,16 @@ function createWindow() {
     documents: app.getPath('documents'),
     version: app.getVersion(),
   }));
+  // Names and modification times of the files in `folder` ([] when it does not exist).
+  ipcMain.handle('list-dir', (_e, folder) => {
+    try {
+      return fs.readdirSync(folder, { withFileTypes: true })
+        .filter((entry) => entry.isFile())
+        .map((entry) => ({ name: entry.name, mtimeMs: fs.statSync(path.join(folder, entry.name)).mtimeMs }));
+    } catch {
+      return [];
+    }
+  });
   ipcMain.handle('read-text', (_e, file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null));
   ipcMain.handle('write-text', (_e, file, text) => writeAtomic(file, text));
   ipcMain.handle('write-binary', (_e, file, base64) => {

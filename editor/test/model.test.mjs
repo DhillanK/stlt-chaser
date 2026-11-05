@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
-import { parseAdvancedOutput } from '../src/advancedOutput.mjs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { parseAdvancedOutput, presetReference, matchPreset, presetFolderFor } from '../src/advancedOutput.mjs';
 import * as D from '../src/document.mjs';
 import { generate, autoGrid } from '../src/factory.mjs';
 import { evaluate, sampleLut, createEnvelopeLibrary, removeEnvelope } from '../src/envelopes.mjs';
@@ -39,9 +39,23 @@ test('parses slices oldest first with names, points and screens', () => {
   assert.equal(setup.slices[0].points.length, 3);
 });
 
-const realPath = `${process.env.USERPROFILE}\\Documents\\Resolume Arena\\Preferences\\AdvancedOutput.xml`;
-test('parses the AdvancedOutput.xml on this machine', { skip: !existsSync(realPath) }, () => {
-  const setup = parseAdvancedOutput(readFileSync(realPath, 'utf8'));
+// Documents may be redirected (e.g. OneDrive), so try that location too.
+const realPath = [process.env.OneDrive, process.env.USERPROFILE]
+  .filter(Boolean)
+  .map((base) => `${base}\\Documents\\Resolume Arena\\Preferences\\AdvancedOutput.xml`)
+  .find((file) => existsSync(file)) ?? '';
+test('parses the AdvancedOutput.xml on this machine', { skip: !realPath }, () => {
+  let xml = readFileSync(realPath, 'utf8');
+  const reference = presetReference(xml);
+  if (reference) {
+    // Arena 7.28+ stub: read the preset it points to, as the editor does.
+    const folder = presetFolderFor(realPath);
+    const files = readdirSync(folder).map((name) => ({ name, mtimeMs: statSync(`${folder}\\${name}`).mtimeMs }));
+    const name = matchPreset(reference, files);
+    assert.ok(name, `preset "${reference}" not found in ${folder}`);
+    xml = readFileSync(`${folder}\\${name}`, 'utf8');
+  }
+  const setup = parseAdvancedOutput(xml);
   assert.ok(setup.slices.length > 0);
   for (const slice of setup.slices) assert.ok(slice.points.length >= 3 && slice.id);
 });
@@ -192,4 +206,55 @@ test('reads the stage STLT writes and relinks a document onto it', async () => {
   doc.sequences[0].steps[0] = [arenaA];
   D.relink(doc, setup, 'chaser-stage.json');
   assert.deepEqual(doc.sequences[0].steps[0], ['a1']);
+});
+
+// ---- Arena 7.28+ stub AdvancedOutput.xml (written by Arena 7.28.1 rev 26535) ----
+const STUB_728 = `<?xml version="1.0" encoding="utf-8"?>
+<ScreenSetup name="ScreenSetup" presetFile="Dave 80th - LED Stage P39">
+	<versionInfo name="Resolume Arena" majorVersion="7" minorVersion="28" microVersion="1" revision="26535"/>
+</ScreenSetup>`;
+
+test('a 7.28 stub names its preset; a full setup does not', () => {
+  assert.equal(presetReference(STUB_728), 'Dave 80th - LED Stage P39');
+  assert.equal(presetReference(SAMPLE), null);
+  assert.throws(() => parseAdvancedOutput(STUB_728), /No composition size/);
+});
+
+test('a full setup with a presetFile attribute is still read directly', () => {
+  const tagged = SAMPLE.replace('<ScreenSetup name="ScreenSetup">', '<ScreenSetup name="ScreenSetup" presetFile="X">');
+  assert.equal(presetReference(tagged), null);
+});
+
+test('the stub preset name matches its file loosely, not a similar preset', () => {
+  const files = [
+    { name: 'Dave 80th - LED Stage P3.9 + Sides.xml', mtimeMs: 3 },
+    { name: 'Dave 80th - LED Stage P3.9.xml', mtimeMs: 2 },
+    { name: 'notes.txt', mtimeMs: 9 },
+  ];
+  assert.equal(matchPreset('Dave 80th - LED Stage P39', files), 'Dave 80th - LED Stage P3.9.xml');
+  assert.equal(matchPreset('Dave 80th - LED Stage P3.9 + Sides', files), 'Dave 80th - LED Stage P3.9 + Sides.xml');
+  assert.equal(matchPreset('Something else', files), null);
+});
+
+test('an exact name wins over a loose one, then the newest loose one', () => {
+  assert.equal(matchPreset('A.1', [{ name: 'A1.xml', mtimeMs: 5 }, { name: 'A.1.xml', mtimeMs: 1 }]), 'A.1.xml');
+  assert.equal(matchPreset('A1', [{ name: 'A_1.xml', mtimeMs: 1 }, { name: 'A.1.xml', mtimeMs: 5 }]), 'A.1.xml');
+});
+
+test('presets folder sits next to Preferences, OneDrive paths included', () => {
+  assert.equal(
+    presetFolderFor('C:\\Users\\Dhill\\OneDrive\\Documents\\Resolume Arena\\Preferences\\AdvancedOutput.xml'),
+    'C:\\Users\\Dhill\\OneDrive\\Documents\\Resolume Arena\\Presets\\Advanced Output',
+  );
+  assert.equal(presetFolderFor('/Users/x/Documents/Resolume Arena/Preferences/AdvancedOutput.xml'), '/Users/x/Documents/Resolume Arena/Presets/Advanced Output');
+});
+
+test('a preset file parses like a full AdvancedOutput.xml', () => {
+  const preset = `<?xml version="1.0" encoding="utf-8"?>
+<XmlState name="Dave 80th - LED Stage P3.9">
+${SAMPLE.replace(/^<\?xml[^>]*>\n/, '')}
+</XmlState>`;
+  const setup = parseAdvancedOutput(preset);
+  assert.equal(setup.compWidth, 1000);
+  assert.equal(setup.slices.length, 3);
 });
