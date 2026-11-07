@@ -1,7 +1,7 @@
 {
   "name": "stlt-chaser",
   "productName": "STLT-CHASER",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Sequence editor for the STLT-CHASER Resolume plugins",
   "main": "main.js",
   "private": true,
