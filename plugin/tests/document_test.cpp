@@ -3,10 +3,13 @@
 #include <cstdio>
 #include <cmath>
 #include "ChaseDocument.h"
+#include "StepPattern.h"
+#include <set>
 
 using namespace stilletchaser;
 
 static int failures = 0;
+static void CheckStepPatterns();
 #define CHECK( cond )                                                    \
 	do                                                                   \
 	{                                                                    \
@@ -27,6 +30,8 @@ int main( int argc, char** argv )
 	for( int i = 0; i < 256; ++i )
 		ramp[ i ] = i / 255.f;
 	CHECK( std::fabs( SampleLut( ramp, 0.5f ) - 0.5f ) < 1e-4f );
+
+	CheckStepPatterns();
 
 	auto missing = LoadChaseDocument( "does-not-exist.stchase", "nope.json" );
 	CHECK( !missing->error.empty() && missing->slices.empty() );
@@ -54,4 +59,75 @@ int main( int argc, char** argv )
 	}
 	std::printf( "%s\n", failures ? "FAILED" : "ok" );
 	return failures;
+}
+
+#undef CHECK_SEQ
+static void CheckStepPatterns()
+{
+	auto run = []( int direction, int steps, int from, int to ) {
+		std::vector< int > out;
+		for( int t = from; t < to; ++t )
+			out.push_back( StepAt( direction, steps, t ) );
+		return out;
+	};
+	CHECK( ( run( DIRECTION_FORWARD, 4, 0, 6 ) == std::vector< int >{ 0, 1, 2, 3, 0, 1 } ) );
+	CHECK( ( run( DIRECTION_FORWARD, 4, -2, 0 ) == std::vector< int >{ 2, 3 } ) );// echoes before the first tick
+	CHECK( ( run( DIRECTION_BACKWARD, 4, 0, 6 ) == std::vector< int >{ 3, 2, 1, 0, 3, 2 } ) );
+	CHECK( ( run( DIRECTION_PING_PONG, 4, 0, 8 ) == std::vector< int >{ 0, 1, 2, 3, 2, 1, 0, 1 } ) );
+	CHECK( TicksPerCycle( DIRECTION_PING_PONG, 4 ) == 6 && TicksPerCycle( DIRECTION_FORWARD, 4 ) == 4 );
+	CHECK( TicksPerCycle( DIRECTION_PING_PONG, 1 ) == 1 && TicksPerCycle( DIRECTION_RANDOM, 0 ) == 0 );
+	CHECK( ( run( DIRECTION_PING_PONG, 1, 0, 3 ) == std::vector< int >{ 0, 0, 0 } ) );
+
+	// Random order: each loop plays every step once, no step twice in a row (seams included), and the
+	// same tick always gives the same step.
+	for( int steps : { 2, 3, 5, 8, 13 } )
+	{
+		int previous = -1;
+		for( int loop = -3; loop < 40; ++loop )
+		{
+			std::set< int > seen;
+			for( int t = 0; t < steps; ++t )
+			{
+				const int s = StepAt( DIRECTION_RANDOM, steps, (int64_t)loop * steps + t );
+				CHECK( s >= 0 && s < steps );
+				CHECK( s != previous );
+				seen.insert( s );
+				previous = s;
+			}
+			CHECK( (int)seen.size() == steps );
+		}
+		CHECK( StepAt( DIRECTION_RANDOM, steps, 77 ) == StepAt( DIRECTION_RANDOM, steps, 77 ) );
+	}
+	// ...and loops are not all the same order.
+	CHECK( run( DIRECTION_RANDOM, 8, 0, 8 ) != run( DIRECTION_RANDOM, 8, 8, 16 ) || run( DIRECTION_RANDOM, 8, 8, 16 ) != run( DIRECTION_RANDOM, 8, 16, 24 ) );
+
+	// Random driver: only eligible slices, `perTick` distinct ones, and with one per tick every slice comes up
+	// before any repeats, never twice in a row.
+	const std::vector< int > eligible{ 2, 3, 5, 7, 11, 13, 17, 19 };
+	int previous = -1;
+	for( int deck = 0; deck < 30; ++deck )
+	{
+		std::set< int > seen;
+		for( int t = 0; t < (int)eligible.size(); ++t )
+		{
+			const auto lit = RandomSlicesAt( eligible, 1, (int64_t)deck * (int64_t)eligible.size() + t );
+			CHECK( lit.size() == 1 );
+			CHECK( std::find( eligible.begin(), eligible.end(), lit[ 0 ] ) != eligible.end() );
+			CHECK( lit[ 0 ] != previous );
+			previous = lit[ 0 ];
+			seen.insert( lit[ 0 ] );
+		}
+		CHECK( seen.size() == eligible.size() );
+	}
+	for( int t = -5; t < 50; ++t )
+	{
+		const auto three = RandomSlicesAt( eligible, 3, t );
+		CHECK( three.size() >= 2 && three.size() <= 3 );// a deck seam can deal the same slice twice in one tick
+		CHECK( RandomSlicesAt( eligible, 3, t ) == three );
+	}
+	CHECK( RandomSlicesAt( eligible, 20, 4 ).size() == eligible.size() );// more than there are: all of them
+	CHECK( RandomSlicesAt( {}, 2, 0 ).empty() );
+	const std::vector< int > pair{ 4, 9 };
+	for( int t = 0; t < 10; ++t )
+		CHECK( RandomSlicesAt( pair, 1, t )[ 0 ] != RandomSlicesAt( pair, 1, t + 1 )[ 0 ] );
 }

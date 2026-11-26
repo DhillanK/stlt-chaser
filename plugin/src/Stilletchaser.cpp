@@ -23,6 +23,13 @@ enum ParamID
 	PID_DRIVER,
 	PID_SEQUENCE,
 	PID_STEP,
+	PID_DIRECTION,
+	PID_RANDOM_COUNT,
+	PID_RANDOM_STEPS,
+	PID_BUMP_NEXT,
+	PID_BUMP_PREVIOUS,
+	PID_BUMP_RESET,
+	PID_BUMP_LENGTH,
 	PID_SCALING,
 	PID_VIEW,
 	PID_ECHOES,
@@ -92,11 +99,18 @@ enum WipeSource
 	SOURCE_COLOUR,
 };
 
+// New drivers go at the end: saved settings keep their index.
 enum Driver
 {
 	DRIVER_CHASER,
 	DRIVER_NONE,
+	DRIVER_RANDOM,
+	DRIVER_BUMPER,
 };
+static const int DRIVERS = 4;
+static const int MAX_RANDOM_COUNT = 64;
+static const int MAX_RANDOM_STEPS = 64;
+static const size_t MAX_BUMPS     = 64;
 
 enum DelayUnit
 {
@@ -151,13 +165,32 @@ Stilletchaser::Stilletchaser()
 	SetMinInputs( 1 );
 	SetMaxInputs( 1 );
 
-	SetOptionParamInfo( PID_DRIVER, "Driver", 2, driver );
+	SetOptionParamInfo( PID_DRIVER, "Driver", DRIVERS, driver );
 	SetParamElementInfo( PID_DRIVER, DRIVER_CHASER, "Chaser", (float)DRIVER_CHASER );
 	SetParamElementInfo( PID_DRIVER, DRIVER_NONE, "None (all slices)", (float)DRIVER_NONE );
+	SetParamElementInfo( PID_DRIVER, DRIVER_RANDOM, "Random", (float)DRIVER_RANDOM );
+	SetParamElementInfo( PID_DRIVER, DRIVER_BUMPER, "Bumper", (float)DRIVER_BUMPER );
 
 	SetOptionParamInfo( PID_SEQUENCE, "Sequence", 1, 0.f );
 	SetParamElementInfo( PID_SEQUENCE, 0, "-", 0.f );
 	SetParamInfo( PID_STEP, "Step", FF_TYPE_STANDARD, step );
+
+	// The order the steps play in (Chaser and Bumper).
+	SetOptionParamInfo( PID_DIRECTION, "Direction", DIRECTIONS, direction );
+	SetParamElementInfo( PID_DIRECTION, DIRECTION_FORWARD, "Forward", (float)DIRECTION_FORWARD );
+	SetParamElementInfo( PID_DIRECTION, DIRECTION_BACKWARD, "Backward", (float)DIRECTION_BACKWARD );
+	SetParamElementInfo( PID_DIRECTION, DIRECTION_PING_PONG, "Ping-Pong", (float)DIRECTION_PING_PONG );
+	SetParamElementInfo( PID_DIRECTION, DIRECTION_RANDOM, "Random Order", (float)DIRECTION_RANDOM );
+
+	// Random driver: Step 0..1 runs through Random Steps steps, each lighting Random Count slices of the view.
+	SetRangedParamInfo( PID_RANDOM_COUNT, "Random Count", FF_TYPE_INTEGER, randomCount, 1.f, (float)MAX_RANDOM_COUNT );
+	SetRangedParamInfo( PID_RANDOM_STEPS, "Random Steps", FF_TYPE_INTEGER, randomSteps, 1.f, (float)MAX_RANDOM_STEPS );
+
+	// Bumper driver: each press lights the next (or previous) step, which then fades over Bump Length beats.
+	SetParamInfo( PID_BUMP_NEXT, "Bump Next", FF_TYPE_EVENT, false );
+	SetParamInfo( PID_BUMP_PREVIOUS, "Bump Previous", FF_TYPE_EVENT, false );
+	SetParamInfo( PID_BUMP_RESET, "Bump Reset", FF_TYPE_EVENT, false );
+	SetRangedParamInfo( PID_BUMP_LENGTH, "Bump Length (beats)", FF_TYPE_STANDARD, bumpLength, 0.0625f, 8.f );
 
 	SetOptionParamInfo( PID_SCALING, "Scaling", 3, scaling );
 	SetParamElementInfo( PID_SCALING, SCALING_MASK, "Mask", (float)SCALING_MASK );
@@ -274,15 +307,27 @@ void Stilletchaser::RefreshMenus( bool raiseEvents )
 // Only the controls that do something with the current choices are shown.
 void Stilletchaser::UpdateVisibility( bool raiseEvents )
 {
-	const bool chaser = Option( driver, 2 ) == DRIVER_CHASER;
-	const bool curve  = std::lround( envelope ) > 0;
-	for( unsigned int id : { PID_STEP, PID_ECHOES, PID_ENVELOPE } )
-		SetParamVisibility( id, chaser, raiseEvents );
+	const int mode      = Option( driver, DRIVERS );
+	const bool chaser   = mode == DRIVER_CHASER;
+	const bool random   = mode == DRIVER_RANDOM;
+	const bool bumper   = mode == DRIVER_BUMPER;
+	const bool stepped  = chaser || random;// driven by the Step parameter
+	const bool sequence = chaser || bumper;// plays a sequence of the document
+	const bool fading   = stepped || bumper;
+	const bool curve    = std::lround( envelope ) > 0;
+	for( unsigned int id : { PID_STEP, PID_ECHOES } )
+		SetParamVisibility( id, stepped, raiseEvents );
+	SetParamVisibility( PID_ENVELOPE, fading, raiseEvents );
+	SetParamVisibility( PID_DIRECTION, sequence, raiseEvents );
+	for( unsigned int id : { PID_RANDOM_COUNT, PID_RANDOM_STEPS } )
+		SetParamVisibility( id, random, raiseEvents );
+	for( unsigned int id : { PID_BUMP_NEXT, PID_BUMP_PREVIOUS, PID_BUMP_RESET, PID_BUMP_LENGTH } )
+		SetParamVisibility( id, bumper, raiseEvents );
 	// The sequences are buttons; the menu only says there are none yet (it stays a parameter, for saved settings).
-	SetParamVisibility( PID_SEQUENCE, chaser && doc->sequences.empty(), raiseEvents );
+	SetParamVisibility( PID_SEQUENCE, sequence && doc->sequences.empty(), raiseEvents );
 	UpdateSequenceButtons( raiseEvents );
-	SetParamVisibility( PID_SUSTAIN, chaser && !curve, raiseEvents );
-	SetParamVisibility( PID_RELEASE, chaser && !curve, raiseEvents );
+	SetParamVisibility( PID_SUSTAIN, fading && !curve, raiseEvents );
+	SetParamVisibility( PID_RELEASE, fading && !curve, raiseEvents );
 
 	const bool delaying = delayer > 0.5f;
 	const int unit      = Option( delayUnit, 3 );
@@ -312,7 +357,8 @@ void Stilletchaser::UpdateVisibility( bool raiseEvents )
 
 void Stilletchaser::UpdateSequenceButtons( bool raiseEvents )
 {
-	const bool chaser  = Option( driver, 2 ) == DRIVER_CHASER;
+	const int mode     = Option( driver, DRIVERS );
+	const bool chaser  = mode == DRIVER_CHASER || mode == DRIVER_BUMPER;
 	const int count    = (int)doc->sequences.size();
 	const int selected = count > 0 ? Option( sequence, count ) : -1;
 	for( int i = 0; i < SEQUENCE_BUTTONS; ++i )
@@ -374,37 +420,85 @@ FFResult Stilletchaser::DeInitGL()
 
 void Stilletchaser::ComputeLevels( const ChaseDocument& d, std::vector< float >& levels ) const
 {
-	const View& v = d.views[ Option( view, (int)d.views.size() ) ];
-	if( Option( driver, 2 ) == DRIVER_NONE || d.sequences.empty() )
+	const View& v  = d.views[ Option( view, (int)d.views.size() ) ];
+	const int mode = Option( driver, DRIVERS );
+	levels.assign( d.slices.size(), 0.f );
+	if( mode == DRIVER_NONE )
 	{
-		levels.resize( d.slices.size() );
 		for( size_t s = 0; s < d.slices.size(); ++s )
-			levels[ s ] = Option( driver, 2 ) == DRIVER_NONE && v.includes[ s ] ? 1.f : 0.f;
+			levels[ s ] = v.includes[ s ] ? 1.f : 0.f;
 		return;
 	}
-	levels.assign( d.slices.size(), 0.f );
+
+	const Envelope* env = ChosenEnvelope( d, envelope );
+	auto curve          = [ & ]( float t ) { return env ? SampleLut( env->lut, t ) : SustainRelease( sustain, std::max( release, sustain ), t ); };
+	auto light          = [ & ]( const std::vector< int >& slices, float opacity ) {
+		if( opacity <= 0.f )
+			return;
+		for( int slice : slices )
+			if( slice >= 0 && slice < (int)levels.size() && v.includes[ slice ] )
+				levels[ slice ] = std::max( levels[ slice ], opacity );
+	};
+
+	// Step 0..1 runs through one cycle of `ticks` steps. A step stays lit for 1 + Echoes steps,
+	// and the opacity curve spans that whole life. `tickAt( n )` lights whatever tick n played.
+	auto runSteps = [ & ]( int ticks, auto&& tickAt ) {
+		if( ticks <= 0 )
+			return;
+		const float position = std::min( step, 0.99999f ) * (float)ticks;
+		const int current    = (int)std::floor( position );
+		const float within   = position - (float)current;
+		const int life       = 1 + std::clamp( (int)std::lround( echoes ), 0, MAX_ECHOES );
+		const int64_t first  = stepCycle * (int64_t)ticks + current;
+		for( int age = 0; age < life; ++age )
+			tickAt( first - age, curve( ( within + (float)age ) / (float)life ) );
+	};
+
+	if( mode == DRIVER_RANDOM )
+	{
+		std::vector< int > eligible;
+		for( size_t s = 0; s < d.slices.size(); ++s )
+			if( v.includes[ s ] )
+				eligible.push_back( (int)s );
+		const int perTick = std::clamp( (int)std::lround( randomCount ), 1, MAX_RANDOM_COUNT );
+		const int ticks   = std::clamp( (int)std::lround( randomSteps ), 1, MAX_RANDOM_STEPS );
+		runSteps( ticks, [ & ]( int64_t tick, float opacity ) { light( RandomSlicesAt( eligible, perTick, tick ), opacity ); } );
+		return;
+	}
+
+	if( d.sequences.empty() )
+		return;
 	const Sequence& seq = d.sequences[ Option( sequence, (int)d.sequences.size() ) ];
 	const int count     = (int)seq.steps.size();
-	const Envelope* env = ChosenEnvelope( d, envelope );
+	const int order     = Option( direction, DIRECTIONS );
+	if( count == 0 )
+		return;
 
-	// Step 0..1 runs through the whole sequence. A step stays lit for 1 + Echoes steps,
-	// and the opacity curve spans that whole life.
-	const float position = std::min( step, 0.99999f ) * (float)count;
-	const int current    = (int)std::floor( position );
-	const float within   = position - (float)current;
-	const int life       = 1 + std::clamp( (int)std::lround( echoes ), 0, MAX_ECHOES );
-
-	for( int age = 0; age < life; ++age )
+	if( mode == DRIVER_BUMPER )
 	{
-		int index     = ( ( current - age ) % count + count ) % count;
-		float t       = ( within + (float)age ) / (float)life;
-		float opacity = env ? SampleLut( env->lut, t ) : SustainRelease( sustain, std::max( release, sustain ), t );
-		if( opacity <= 0.f )
-			continue;
-		for( int slice : seq.steps[ index ] )
-			if( v.includes[ slice ] )
-				levels[ slice ] = std::max( levels[ slice ], opacity );
+		// Each bump lights its step at full strength and fades over Bump Length; quick bumps overlap.
+		const double length = std::max( bumpLength, 0.0625f ) * 60.0 / std::max( bpm, 1.f );
+		const double now    = std::chrono::duration< double >( std::chrono::steady_clock::now().time_since_epoch() ).count();
+		for( const BumpHit& b : bumps )
+		{
+			const double t = ( now - b.time ) / length;
+			if( t < 0.0 || t >= 1.0 )
+				continue;
+			light( seq.steps[ StepAt( order, count, b.tick ) ], curve( (float)t ) );
+		}
+		return;
 	}
+
+	runSteps( TicksPerCycle( order, count ), [ & ]( int64_t tick, float opacity ) { light( seq.steps[ StepAt( order, count, tick ) ], opacity ); } );
+}
+
+void Stilletchaser::Bump( int64_t tick )
+{
+	bumpTick = tick;
+	const double now = std::chrono::duration< double >( std::chrono::steady_clock::now().time_since_epoch() ).count();
+	bumps.push_back( { tick, now } );
+	if( bumps.size() > MAX_BUMPS )
+		bumps.erase( bumps.begin() );
 }
 
 bool Stilletchaser::DelayInFrames() const
@@ -721,11 +815,41 @@ FFResult Stilletchaser::SetFloatParameter( unsigned int index, float value )
 		driver = value;
 		UpdateVisibility( true );
 		break;
+	case PID_DIRECTION:    direction = value; break;
+	case PID_RANDOM_COUNT: randomCount = value; break;
+	case PID_RANDOM_STEPS: randomSteps = value; break;
+	case PID_BUMP_LENGTH:  bumpLength = value; break;
+	// Bumps act on the press, not the release. The first Next after a Reset lights the first step.
+	case PID_BUMP_NEXT:
+		if( value > 0.5f )
+			Bump( bumped ? bumpTick + 1 : 0 );
+		bumped = bumped || value > 0.5f;
+		break;
+	case PID_BUMP_PREVIOUS:
+		if( value > 0.5f )
+			Bump( bumped ? bumpTick - 1 : 0 );
+		bumped = bumped || value > 0.5f;
+		break;
+	case PID_BUMP_RESET:
+		if( value > 0.5f )
+		{
+			bumps.clear();
+			bumpTick = 0;
+			bumped   = false;
+		}
+		break;
 	case PID_SEQUENCE:
 		sequence = value;
 		UpdateSequenceButtons( true );
 		break;
-	case PID_STEP:     step = value; break;
+	case PID_STEP:
+		// Count the loops of Step, so random orders carry on instead of repeating every loop.
+		if( value < step - 0.5f )
+			++stepCycle;
+		else if( value > step + 0.5f )
+			--stepCycle;
+		step = value;
+		break;
 	case PID_SCALING:  scaling = value; break;
 	case PID_VIEW:     view = value; break;
 	case PID_ECHOES:   echoes = value; break;
@@ -792,6 +916,10 @@ float Stilletchaser::GetFloatParameter( unsigned int index )
 	case PID_DRIVER:         return driver;
 	case PID_SEQUENCE:       return sequence;
 	case PID_STEP:           return step;
+	case PID_DIRECTION:      return direction;
+	case PID_RANDOM_COUNT:   return randomCount;
+	case PID_RANDOM_STEPS:   return randomSteps;
+	case PID_BUMP_LENGTH:    return bumpLength;
 	case PID_SCALING:        return scaling;
 	case PID_VIEW:           return view;
 	case PID_ECHOES:         return echoes;
@@ -821,7 +949,27 @@ float Stilletchaser::GetFloatParameter( unsigned int index )
 char* Stilletchaser::GetParameterDisplay( unsigned int index )
 {
 	static char display[ 48 ];
-	if( ( index == PID_STEP || index == PID_WIPE_STEP ) && doc && !doc->sequences.empty() )
+	if( index == PID_STEP && doc && Option( driver, DRIVERS ) == DRIVER_RANDOM )
+	{
+		const int ticks = std::clamp( (int)std::lround( randomSteps ), 1, MAX_RANDOM_STEPS );
+		std::snprintf( display, sizeof( display ), "%d / %d", std::min( (int)( step * (float)ticks ), ticks - 1 ) + 1, ticks );
+		return display;
+	}
+	if( index == PID_STEP && doc && !doc->sequences.empty() )
+	{
+		// The sequence step on show, which the Direction may take out of order.
+		const Sequence& seq = doc->sequences[ Option( sequence, (int)doc->sequences.size() ) ];
+		const int count     = (int)seq.steps.size();
+		const int order     = Option( direction, DIRECTIONS );
+		const int ticks     = TicksPerCycle( order, count );
+		if( count > 0 )
+		{
+			const int tick = std::min( (int)( step * (float)ticks ), ticks - 1 );
+			std::snprintf( display, sizeof( display ), "%d / %d", StepAt( order, count, stepCycle * (int64_t)ticks + tick ) + 1, count );
+			return display;
+		}
+	}
+	if( index == PID_WIPE_STEP && doc && !doc->sequences.empty() )
 	{
 		const bool wipeStep = index == PID_WIPE_STEP;
 		const Sequence& seq = doc->sequences[ Option( wipeStep ? WipeParam( PID_WIPE_SEQUENCE ) : sequence, (int)doc->sequences.size() ) ];
