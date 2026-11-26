@@ -190,7 +190,8 @@ Stilletchaser::Stilletchaser()
 	SetParamInfo( PID_BUMP_NEXT, "Bump Next", FF_TYPE_EVENT, false );
 	SetParamInfo( PID_BUMP_PREVIOUS, "Bump Previous", FF_TYPE_EVENT, false );
 	SetParamInfo( PID_BUMP_RESET, "Bump Reset", FF_TYPE_EVENT, false );
-	SetRangedParamInfo( PID_BUMP_LENGTH, "Bump Length (beats)", FF_TYPE_STANDARD, bumpLength, 0.0625f, 8.f );
+	// Hosts show 16 characters of a name, so the unit goes in the value shown.
+	SetRangedParamInfo( PID_BUMP_LENGTH, "Bump Length", FF_TYPE_STANDARD, bumpLength, 0.0625f, 8.f );
 
 	SetOptionParamInfo( PID_SCALING, "Scaling", 3, scaling );
 	SetParamElementInfo( PID_SCALING, SCALING_MASK, "Mask", (float)SCALING_MASK );
@@ -949,6 +950,11 @@ float Stilletchaser::GetFloatParameter( unsigned int index )
 char* Stilletchaser::GetParameterDisplay( unsigned int index )
 {
 	static char display[ 48 ];
+	if( index == PID_BUMP_LENGTH )
+	{
+		std::snprintf( display, sizeof( display ), "%.2f beats", bumpLength );
+		return display;
+	}
 	if( index == PID_STEP && doc && Option( driver, DRIVERS ) == DRIVER_RANDOM )
 	{
 		const int ticks = std::clamp( (int)std::lround( randomSteps ), 1, MAX_RANDOM_STEPS );
