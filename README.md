@@ -54,11 +54,12 @@ Effects in Resolume work in a chain: each one only sees what the one above lets 
 ## The editor
 
 - **Canvas**: your slices as in Resolume. Click to toggle a slice in the current step, drag across slices to flip them, box-select (Shift: on, Ctrl: off, Alt: hide in view), zoom with the wheel, pan with Space.
+- **Screens** (the picker after the zoom): every screen side by side with its slices where they go on it, one screen at a time (Page Up / Page Down, or double-click a screen's title), or the composition, where the slices take their picture from. A box started inside a screen only takes that screen's slices, and only the slices mostly inside the box.
 - **Sequencer**: 1 to 1024 steps per sequence, unlimited sequences. Drag a step onto another to copy it; drag and hold to copy it to every n-th step. Repeat, ping-pong and clear buttons, preview playback with BPM.
 - **Views**: named groups of slices, used by the effects to limit which slices they touch.
-- **Factory**: generates sequences from a grid laid over the slice centres (horizontal, vertical, row, column, random; flip, block, modulo, mirror, shuffle). Drag the grid lines to adjust it.
+- **Factory**: makes a sequence from where the slices are. Pick a pattern (left → right, right → left, top → bottom, bottom → top, center → out, out → center, sides → center, diagonal, clockwise, random): slices in line light together, and the number on each slice is the step it lights in. Set the steps (Auto or a number), one step at a time or building up, straight, odd / even or there and back; Block, Modulo and Shuffle are under Advanced. Click a slice to move it to the selected step. **Create standard sequences…** makes one sequence per pattern at once.
 
-  ![The Factory panel: a column sweep generated from the grid drawn over the slice centres](docs/images/factory.png)
+  ![The Factory panel: a center-out sequence, with the step number on each slice](docs/images/factory.png)
 
 - **Envelopes**: draw opacity curves with Bézier handles, shared by all projects.
 - **Export**: input and output maps as PNG test patterns, with names, positions and sizes.
@@ -67,7 +68,7 @@ The working document lives in `%APPDATA%\Stilletchaser` on Windows and `~/Librar
 
 ## With STLT
 
-[STLT](https://github.com/alfonsostillet/STLT) ships this editor and the three effects. *Output → Chaser...* in STLT opens the editor on STLT's own Advanced Output (in STLT's blue): the slices update as you change them there. Add STLT-CHASER, STLT-WIPER or STLT-OUTLINER from STLT's Effects panel to the composition, a layer or a clip, as in Resolume. The sequences are kept in STLT's settings folder (`chaser`), apart from a Resolume setup's.
+[STLT](https://github.com/alfonsostillet/STLT) ships this editor and the three effects. *Output → Chaser...* in STLT opens the editor on STLT's own Advanced Output, in STLT's look, with a picker for its screens: the slices update as you change them there. Add STLT-CHASER, STLT-WIPER or STLT-OUTLINER from STLT's Effects panel to the composition, a layer or a clip, as in Resolume. The sequences are kept in STLT's settings folder (`chaser`), apart from a Resolume setup's.
 
 For this the editor takes `--stlt-vj <stage file>` (the slices STLT writes, see [docs/FORMAT.md](docs/FORMAT.md)), and the editor and the effects read `STLT_DATA_DIR` for the folder of the working copy.
 

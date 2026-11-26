@@ -1,13 +1,19 @@
 name: Build and release
 
 # Every push and pull request builds and tests both platforms.
-# Pushing a tag like v1.0.0 also publishes a GitHub release with the installers attached.
+# Pushing a tag like v1.0.0, or a manual run with a release tag, also publishes a GitHub release with the installers
+# attached; a manual run creates the tag on the commit it built.
 on:
   push:
     branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Publish a release with this tag (e.g. v1.3.0); empty for a plain build"
+        required: false
+        default: ""
 
 jobs:
   build:
@@ -19,7 +25,7 @@ jobs:
             dist: dist:win
             artifact: windows
             files: editor/release/*.exe
-          - os: macos-15
+          - os: macos-15 # Apple Silicon; macos-14 jobs have been cancelled before starting since November 2026
             dist: dist:mac
             artifact: macos
             files: editor/release/*.dmg
@@ -88,7 +94,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release != ''
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -101,5 +107,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.release || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           files: artifacts/*
           generate_release_notes: true

@@ -4,10 +4,12 @@ import { parseAdvancedOutput, presetReference, matchPreset, presetFolderFor } fr
 import { isStltVjStage, parseStltVjStage } from './stltvjStage.mjs';
 import { useHost } from './theme.mjs';
 import * as D from './document.mjs';
-import { autoGrid, defaultFactorySettings, generate } from './factory.mjs';
+import { PATTERNS, defaultFactorySettings, generate, isPatternFactory, patternName } from './factory.mjs';
 import { createEnvelopeLibrary } from './envelopes.mjs';
 import { createStore } from './store.mjs';
 import { createCanvas } from './canvas.mjs';
+import { SHOW_COMPOSITION, SHOW_SCREENS, canShowScreens, resolveShow, screenColour, slicesByScreen } from './layout.mjs';
+import { escapeHtml } from './listView.mjs';
 import { createSequencer } from './sequencer.mjs';
 import { createPanels } from './panels.mjs';
 import { createEnvelopeEditor } from './envelopeEditor.mjs';
@@ -112,13 +114,38 @@ async function boot() {
   };
 
   function applyFactory(settings, coalesce = null) {
-    const { compWidth, compHeight } = store.state.doc.source;
-    const result = generate(factorySlices(), settings, compWidth, compHeight);
+    const { steps } = generate(factorySlices(), settings);
     const index = store.state.ui.sequenceIndex;
     store.edit((d) => {
-      d.sequences[index].steps = result.steps.length ? result.steps : [[]];
-      d.sequences[index].factory = { ...settings, grid: result.grid };
+      d.sequences[index].steps = steps;
+      d.sequences[index].factory = { ...settings };
     }, { coalesce });
+  }
+
+  // Puts a slice in the selected step of a Factory sequence: it lights from there on.
+  function factoryMove(sliceId) {
+    const factory = store.currentSequence.factory;
+    if (!isPatternFactory(factory)) return false;
+    applyFactory({ ...factory, moves: { ...factory.moves, [sliceId]: store.state.ui.stepIndex } });
+    return true;
+  }
+
+  // One new Factory sequence per pattern, after the selected one; selects the first.
+  function createStandardSequences(patternIds, steps) {
+    const slices = factorySlices();
+    if (!slices.length || !patternIds.length) return;
+    const at = store.state.ui.sequenceIndex + 1;
+    store.edit((d) => {
+      const made = patternIds.map((pattern) => {
+        const settings = { ...defaultFactorySettings(), pattern, steps };
+        const sequence = D.createSequence(D.uniqueName(d.sequences, patternName(pattern)));
+        sequence.steps = generate(slices, settings).steps;
+        sequence.factory = settings;
+        return sequence;
+      });
+      d.sequences.splice(at, 0, ...made);
+    });
+    store.setUi({ sequenceIndex: at, stepIndex: 0 });
   }
 
   // Follows the source file and, for an Arena 7.28+ stub, the preset it points to:
@@ -134,6 +161,8 @@ async function boot() {
   const actions = {
     factorySlices,
     applyFactory,
+    createStandardSequences,
+    patterns: PATTERNS,
     async newFromXml(xmlPath) {
       const file = xmlPath ?? paths.stltvj ?? (await host.openDialog({ title: 'Advanced Output XML', filters: [{ name: 'Advanced Output', extensions: ['xml'] }] }));
       if (!file) return;
@@ -210,8 +239,25 @@ async function boot() {
 
   // ---- Components ----
 
+  // What the stage shows: every screen side by side, one screen, or the composition (saved with the document).
+  function setShow(show) {
+    if (resolveShow(store.state.doc, show) === resolveShow(store.state.doc)) return;
+    store.edit((d) => {
+      d.show = show;
+    });
+  }
+  function stepShow(step) {
+    // Through the screens one at a time (from "all": the first or the last).
+    const d = store.state.doc;
+    if (!canShowScreens(d)) return;
+    const ids = d.screens.map((s) => s.id);
+    const at = ids.indexOf(resolveShow(d));
+    setShow(ids[at < 0 ? (step > 0 ? 0 : ids.length - 1) : (at + step + ids.length) % ids.length]);
+  }
+
   const canvas = createCanvas($('#canvas'), store, {
-    onFactoryGridChange: (grid, key) => applyFactory({ ...(store.currentSequence.factory ?? defaultFactorySettings()), grid }, key),
+    onFactoryPick: factoryMove,
+    onShowScreen: setShow,
   });
   const sequencer = createSequencer($('#sequencer'), store);
   const panels = createPanels($('#panel'), store, actions);
@@ -227,6 +273,57 @@ async function boot() {
      <button id="invert-button" class="tool" title="Turn the lit slices of the selected step off and the others on (I)">&#x25D1;&#xFE0E; Invert step</button>
      <button id="clear-step-button" class="tool" title="Turn every slice of the selected step off (Delete)">&#x2298;&#xFE0E; Clear step</button>`,
   );
+
+  $('#hand-button').insertAdjacentHTML(
+    'afterend',
+    `<div class="divider"></div>
+     <div class="show-picker">
+       <button id="show-button" class="tool" title="What the stage shows: every screen side by side, one screen, or the composition (Page Up / Page Down: the screens one at a time)"></button>
+       <button id="show-prev" class="icon" title="Previous screen (Page Up)">&#x2039;</button>
+       <button id="show-next" class="icon" title="Next screen (Page Down)">&#x203A;</button>
+       <div id="show-menu" class="show-menu" hidden></div>
+     </div>`,
+  );
+  const showMenu = $('#show-menu');
+  $('#show-button').onclick = (event) => {
+    event.stopPropagation();
+    showMenu.hidden = !showMenu.hidden;
+    if (!showMenu.hidden) renderShowMenu();
+  };
+  $('#show-prev').onclick = () => stepShow(-1);
+  $('#show-next').onclick = () => stepShow(1);
+  showMenu.addEventListener('click', (event) => {
+    const choice = event.target.closest('[data-show]')?.dataset.show;
+    if (!choice) return;
+    showMenu.hidden = true;
+    setShow(choice);
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!showMenu.hidden && !event.target.closest('.show-picker')) showMenu.hidden = true;
+  });
+  function renderShowMenu() {
+    const d = store.state.doc;
+    const groups = slicesByScreen(d);
+    const current = resolveShow(d);
+    const row = (show, label, count, colour = null) =>
+      `<button data-show="${escapeHtml(show)}" class="${show === current ? 'on' : ''}">` +
+      `<span>${colour ? `<b style="color:${colour}">${escapeHtml(label.n)}</b>&nbsp; ` : ''}${escapeHtml(colour ? label.name : label)}</span><span class="count">${count}</span></button>`;
+    showMenu.innerHTML =
+      '<div class="head">Show</div>' +
+      row(SHOW_SCREENS, 'All screens, side by side', d.slices.length) +
+      '<hr>' +
+      d.screens.map((s, i) => row(s.id, { n: String(i + 1), name: s.name }, (groups.get(i) ?? []).length, screenColour(i))).join('') +
+      '<hr>' +
+      row(SHOW_COMPOSITION, 'The composition (where slices take from)', d.slices.length);
+  }
+  function showLabel() {
+    const d = store.state.doc;
+    const current = resolveShow(d);
+    if (current === SHOW_SCREENS) return 'All screens';
+    if (current === SHOW_COMPOSITION) return 'The composition';
+    const i = d.screens.findIndex((s) => s.id === current);
+    return `${i + 1}  ${d.screens[i].name}`;
+  }
 
   $('#zoom-input').addEventListener('change', (event) => {
     const value = parseFloat(event.target.value);
@@ -256,7 +353,6 @@ async function boot() {
     store.setUi({
       panel: next,
       mode: next === 'envelopes' || next === 'export' ? next : 'canvas',
-      factoryGrid: next === 'factory' ? autoGrid(factorySlices(), store.state.doc.source.compWidth, store.state.doc.source.compHeight) : null,
     });
     // Opening or closing a panel changes the stage width.
     requestAnimationFrame(() => canvas.fit());
@@ -268,7 +364,10 @@ async function boot() {
     if (event.ctrlKey && key === 'z' && !event.shiftKey) store.undo();
     else if (event.ctrlKey && (key === 'y' || (key === 'z' && event.shiftKey))) store.redo();
     else if (store.state.ui.mode === 'canvas' && !event.ctrlKey && key === 'i') invertStep();
-    else if (store.state.ui.mode === 'canvas' && store.state.ui.panel !== 'factory' && key === 'delete') clearStep();
+    else if (store.state.ui.mode === 'canvas' && key === 'delete') clearStep();
+    else if (store.state.ui.mode === 'canvas' && key === 'pageup') stepShow(-1);
+    else if (store.state.ui.mode === 'canvas' && key === 'pagedown') stepShow(1);
+    else if (key === 'escape' && !showMenu.hidden) showMenu.hidden = true;
     else return;
     event.preventDefault();
   });
@@ -313,6 +412,11 @@ async function boot() {
     messageEl.title = ui.message ?? '';
     messageEl.classList.toggle('error', Boolean(ui.messageIsError));
     $('#hand-button').classList.toggle('active', ui.tool === 'hand');
+    const screensKnown = canShowScreens(currentDoc);
+    $('#show-button').textContent = `\u25A3\uFE0E ${showLabel()} \u25BE`;
+    for (const id of ['#show-button', '#show-prev', '#show-next']) $(id).disabled = !screensKnown || ui.mode !== 'canvas';
+    if (!screensKnown || ui.mode !== 'canvas') showMenu.hidden = true;
+    else if (!showMenu.hidden) renderShowMenu();
     const zoomInput = $('#zoom-input');
     if (document.activeElement !== zoomInput) zoomInput.value = canvas.zoomPercent;
     $('#envelope-editor').hidden = ui.mode !== 'envelopes';

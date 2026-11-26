@@ -13,11 +13,13 @@ Chase e screen bump sulle slice dell'Advanced Output di Resolume Arena: un edito
 
 ## Uso
 
-![La Factory: una sequenza a colonne generata dalla griglia sui centri delle slice](images/factory.png)
+![La Factory: una sequenza dal centro verso l'esterno, con il numero di passo su ogni slice](images/factory.png)
 
 1. Prepara l'Advanced Output in Arena (Save & Close).
 2. Apri l'editor STLT-CHASER. Al primo avvio carica da solo l'Advanced Output di Arena.
 3. Crea le sequenze: scegli un passo in basso e clicca le slice da accendere. Salva da solo, a ogni modifica.
+   - Oppure apri **Factory** e scegli uno schema (Left → Right, Center → Out, Clockwise...): l'ordine viene dalla posizione delle slice e su ognuna compare il numero del passo in cui si accende. Un clic su una slice la sposta nel passo selezionato.
+   - **Create standard sequences…** crea in un colpo una sequenza per ogni schema; poi si rinominano, si modificano o si eliminano come le altre.
 4. In Arena aggiungi l'effetto **STLT-CHASER** a un layer, un gruppo, una clip o alla composizione.
    - *Driver*: **Chaser** accende le slice seguendo la sequenza; **None** le tiene tutte accese (per usare solo i moduli, per esempio il Delayer).
    - **Sequences**: un pulsante per ogni sequenza scritta nell'editor, col suo nome; quella che suona ha ▶ davanti. Mappa i pulsanti su pad MIDI o tasti per cambiare sequenza dal vivo.
@@ -27,7 +29,7 @@ Chase e screen bump sulle slice dell'Advanced Output di Resolume Arena: un edito
    - *Echoes*: quanti passi in più resta acceso ogni passo, mentre sfuma.
    - *Envelope*: curva di dissolvenza disegnata nell'editor; con "Sustain / Release" usi i due cursori.
 5. **Delayer** (spunta *Delayer* nel gruppo Delayer): ogni slice mostra il contenuto com'era un po' di tempo prima.
-   - *Delay Sequence*: decide quanto ritarda ogni slice. Le slice del primo passo non ritardano, quelle dell'ultimo ritardano del massimo, quelle in mezzo in proporzione; le slice che la sequenza non accende non ritardano. Una sequenza Factory "Horizontal" fa scorrere il contenuto da sinistra a destra.
+   - *Delay Sequence*: decide quanto ritarda ogni slice. Le slice del primo passo non ritardano, quelle dell'ultimo ritardano del massimo, quelle in mezzo in proporzione; le slice che la sequenza non accende non ritardano. Una sequenza Factory "Left → Right" fa scorrere il contenuto da sinistra a destra.
    - *Delay*: quanto del ritardo massimo usare (0–100 %), da animare dal vivo.
    - *Set Delay In*: Frames, Seconds o Beats; compare il relativo *Max Frames / Max Seconds / Max Beats*.
    - *Quality*: risoluzione dei fotogrammi memorizzati (75 % di default). Più bassa = meno memoria video.

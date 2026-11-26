@@ -1,6 +1,6 @@
 // The side panels opened from the left menu.
 import * as D from './document.mjs';
-import { DIRECTIONS, defaultFactorySettings, maxBlock } from './factory.mjs';
+import { PATTERNS, defaultFactorySettings, isPatternFactory, maxBlock, patternName } from './factory.mjs';
 import { addEnvelope, duplicateEnvelope, removeEnvelope } from './envelopes.mjs';
 import { renderList, escapeHtml } from './listView.mjs';
 import { HOST_NAME } from './theme.mjs';
@@ -216,40 +216,122 @@ export function createPanels(root, store, actions) {
 
   // ---- Factory ----
 
+  // Small drawings of the patterns, for the gallery and the standard sequences dialog.
+  const PATTERN_ICONS = {
+    'left-right': 'M6 15h28M27 9l7 6-7 6',
+    'right-left': 'M34 15H6M13 9l-7 6 7 6',
+    'top-bottom': 'M20 3v24M14 21l6 6 6-6',
+    'bottom-top': 'M20 27V3M14 9l6-6 6 6',
+    'center-out': 'M20 15h13M20 15H7M28 10l5 5-5 5M12 10l-5 5 5 5',
+    'out-center': 'M4 15h11M36 15H25M10 10l5 5-5 5M30 10l-5 5 5 5',
+    'sides-center': 'M4 6v18M36 6v18M8 15h9M32 15h-9M13 11l4 4-4 4M27 11l-4 4 4 4',
+    diagonal: 'M8 4l24 22M24 26h8v-8',
+    clockwise: 'M20 4a11 11 0 1 1-9 4.5M11 2v7h7',
+    random: 'M8 6h5v5H8zM26 4h5v5h-5zM17 13h5v5h-5zM28 20h5v5h-5zM7 21h5v5H7z',
+  };
+  const patternIcon = (id) => `<svg class="pattern-icon" viewBox="0 0 40 30"><path d="${PATTERN_ICONS[id]}"/></svg>`;
+
   function renderFactory() {
     const sequence = store.currentSequence;
-    const settings = sequence.factory ?? defaultFactorySettings();
-    const { compWidth, compHeight } = doc().source;
+    const made = isPatternFactory(sequence.factory);
+    const settings = made ? { ...defaultFactorySettings(), ...sequence.factory } : defaultFactorySettings();
     const slices = actions.factorySlices();
-    const blockMax = maxBlock(slices, settings, compWidth, compHeight);
-    const toggle = (key, label) => `<button class="btn ${settings[key] ? 'on' : ''}" data-toggle="${key}">${label}</button>`;
+    const blockMax = maxBlock(slices, settings);
+    const choice = (key, value, label, title = '') =>
+      `<button class="btn ${made && settings[key] === value ? 'on' : ''}" data-set="${key}:${value}" title="${title}">${label}</button>`;
+    const moved = Object.keys(settings.moves || {}).length;
     root.innerHTML = `
       <h3>Factory</h3>
-      <div class="hint">${sequence.factory ? 'Settings of this sequence. Changing them regenerates its steps.' : 'Change any setting to generate this sequence. Its current steps are replaced.'}</div>
-      <div class="row"><label>Direction</label><select data-field="direction">${DIRECTIONS.map((d) => `<option ${d === settings.direction ? 'selected' : ''}>${d}</option>`).join('')}</select></div>
-      <div class="row">${toggle('flipX', 'Flip X')}${toggle('flipY', 'Flip Y')}</div>
-      <div class="row"><label>Block</label><button class="btn" data-step="block:-1">&minus;</button><span class="num">${settings.block}</span><button class="btn" data-step="block:1">+</button></div>
-      <div class="row"><label>Modulo</label><button class="btn" data-step="modulo:-1">&minus;</button><span class="num">${settings.modulo || 'OFF'}</span><button class="btn" data-step="modulo:1">+</button></div>
-      <div class="row">${toggle('mirrorX', 'Mirror X')}${toggle('mirrorY', 'Mirror Y')}</div>
-      <button class="btn wide" data-act="shuffle">Shuffle</button>
-      <button class="btn wide" data-act="reset-grid">Reset Grid</button>
-      <div class="hint">Grid: drag a line to move it, Alt-drag to add one, hover and press Delete to remove it. Uses the slices of the current view (${slices.length}).</div>`;
+      <div class="hint">${
+        made
+          ? `Made from the pattern below. Changing a setting makes its steps again.`
+          : sequence.factory
+            ? 'Made with the grid of an earlier version: its steps stay as they are. Pick a pattern to make them again.'
+            : 'Pick a pattern to make this sequence from where the slices are. Its current steps are replaced.'
+      }</div>
+      <div class="section">Pattern</div>
+      <div class="patterns">${PATTERNS.map(
+        (p) => `<button class="pattern ${made && settings.pattern === p.id ? 'on' : ''}" data-pattern="${p.id}">${patternIcon(p.id)}<span>${p.name}</span></button>`,
+      ).join('')}</div>
+      <div class="section">Settings</div>
+      <div class="row"><label title="Auto: one step for each group of slices in line">Steps</label><button class="btn" data-step="steps:-1">&minus;</button><span class="num">${settings.steps || 'Auto'}</span><button class="btn" data-step="steps:1">+</button></div>
+      <div class="row"><label>Lights</label>${choice('fill', 'step', 'One step', 'Each step lights its own slices')}${choice('fill', 'build', 'Build up', 'Slices stay on: the last step lights them all')}</div>
+      <div class="row"><label>Order</label>${choice('alternate', 'none', 'Straight')}${choice('alternate', 'odd-even', 'Odd / Even', 'The odd steps, then the even ones')}${choice('alternate', 'there-back', 'There & back', 'Forwards, then backwards')}</div>
+      <details class="advanced" ${settings.block > 1 || settings.modulo || settings.shuffle ? 'open' : ''}><summary>Advanced</summary>
+        <div class="row"><label title="Steps joined into one">Block</label><button class="btn" data-step="block:-1">&minus;</button><span class="num">${settings.block}</span><button class="btn" data-step="block:1">+</button></div>
+        <div class="row"><label title="Every Nth step joined into one">Modulo</label><button class="btn" data-step="modulo:-1">&minus;</button><span class="num">${settings.modulo || 'OFF'}</span><button class="btn" data-step="modulo:1">+</button></div>
+        <button class="btn wide" data-act="shuffle">Shuffle</button>
+      </details>
+      <div class="hint">${
+        made
+          ? `The number on each slice is the step it lights in. Click a slice to move it to the selected step.`
+          : `Uses the slices of the current view (${slices.length}).`
+      }</div>
+      ${moved ? `<button class="btn wide" data-act="clear-moves">Undo ${moved} moved slice${moved > 1 ? 's' : ''}</button>` : ''}
+      <button class="btn wide primary" data-act="standard">Create standard sequences…</button>`;
 
     const apply = (patch) => actions.applyFactory({ ...settings, ...patch });
     root.onclick = (event) => {
       const button = event.target.closest('button');
       if (!button) return;
-      if (button.dataset.toggle) apply({ [button.dataset.toggle]: !settings[button.dataset.toggle] });
+      if (button.dataset.pattern) apply({ pattern: button.dataset.pattern, moves: {} });
+      if (button.dataset.set) {
+        const [key, value] = button.dataset.set.split(':');
+        apply({ [key]: value });
+      }
       if (button.dataset.step) {
         const [key, delta] = button.dataset.step.split(':');
-        const max = key === 'block' ? blockMax : Math.max(0, Math.ceil(blockMax / settings.block));
-        const min = key === 'block' ? 1 : 0;
-        apply({ [key]: Math.max(min, Math.min(max, (settings[key] || 0) + Number(delta))) });
+        const limits = { steps: [0, 64], block: [1, blockMax], modulo: [0, Math.max(0, Math.ceil(blockMax / settings.block))] }[key];
+        // From Auto, + starts at two steps (one step would light everything at once).
+        const from = key === 'steps' && !settings.steps && Number(delta) > 0 ? 1 : settings[key] || 0;
+        apply({ [key]: Math.max(limits[0], Math.min(limits[1], from + Number(delta))) });
       }
       if (button.dataset.act === 'shuffle') apply({ shuffle: Math.floor(Math.random() * 1e9) + 1 });
-      if (button.dataset.act === 'reset-grid') apply({ grid: null });
+      if (button.dataset.act === 'clear-moves') apply({ moves: {} });
+      if (button.dataset.act === 'standard') openStandardDialog();
     };
-    root.querySelector('[data-field="direction"]').onchange = (event) => apply({ direction: event.target.value });
+  }
+
+  // Makes a sequence for each chosen pattern, all at once; they are ordinary sequences afterwards.
+  function openStandardDialog() {
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay';
+    let steps = 0;
+    const render = () => {
+      const count = overlay.querySelectorAll('input[type=checkbox]:checked').length;
+      overlay.querySelector('[data-act=create]').textContent = `Create ${count} sequence${count === 1 ? '' : 's'}`;
+      overlay.querySelector('[data-act=create]').disabled = !count;
+      overlay.querySelectorAll('[data-steps]').forEach((b) => b.classList.toggle('on', Number(b.dataset.steps) === steps));
+    };
+    overlay.innerHTML = `
+      <div class="dialog" role="dialog" aria-label="Create standard sequences">
+        <h4>Create standard sequences</h4>
+        <div class="hint">One sequence for each pattern, made from the slices of the current view and added after the selected sequence. Rename, change or delete them like any other.</div>
+        <div class="choices">${PATTERNS.map(
+          (p) => `<label class="choice"><input type="checkbox" value="${p.id}" checked>${patternIcon(p.id)}<span>${escapeHtml(patternName(p.id))}</span></label>`,
+        ).join('')}</div>
+        <div class="row"><label>Steps</label><button class="btn" data-steps="0">Auto</button><button class="btn" data-steps="8">8</button><button class="btn" data-steps="16">16</button></div>
+        <div class="buttons"><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="create"></button></div>
+      </div>`;
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) return close();
+      const button = event.target.closest('button');
+      if (!button) return render();
+      if (button.dataset.steps) steps = Number(button.dataset.steps);
+      if (button.dataset.act === 'cancel') return close();
+      if (button.dataset.act === 'create') {
+        const chosen = [...overlay.querySelectorAll('input[type=checkbox]:checked')].map((input) => input.value);
+        close();
+        actions.createStandardSequences(chosen, steps);
+        return;
+      }
+      render();
+    });
+    overlay.addEventListener('keydown', (event) => event.key === 'Escape' && close());
+    document.body.append(overlay);
+    render();
+    overlay.querySelector('[data-act=create]').focus();
   }
 
   // ---- Envelopes ----

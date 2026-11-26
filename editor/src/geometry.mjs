@@ -32,6 +32,12 @@ export function pointInPolygon(x, y, points) {
   return inside;
 }
 
-export function boxesOverlap(a, b) {
-  return a.minX <= b.maxX && b.minX <= a.maxX && a.minY <= b.maxY && b.minY <= a.maxY;
+
+// How much of box `b` lies inside box `a`, from 0 to 1 (a box without area: 1 when inside, else 0).
+export function boxCoverage(a, b) {
+  const w = Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX);
+  const h = Math.min(a.maxY, b.maxY) - Math.max(a.minY, b.minY);
+  if (w < 0 || h < 0) return 0;
+  const area = (b.maxX - b.minX) * (b.maxY - b.minY);
+  return area > 0 ? (w * h) / area : 1;
 }
