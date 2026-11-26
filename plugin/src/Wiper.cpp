@@ -330,7 +330,7 @@ static CFFGLPluginInfo PluginInfo(
 	2,            // API major version number
 	1,            // API minor version number
 	1,            // Plugin major version number
-	2,            // Plugin minor version number
+	3,            // Plugin minor version number
 	FF_EFFECT,
 	"Gradient wipes through Advanced Output slices, step by step through a Stilletchaser sequence",
 	"Stilletchaser" );

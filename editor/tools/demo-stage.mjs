@@ -39,16 +39,15 @@ doc.source.path = '';
 
 const factory = (name, patch) => {
   const settings = { ...defaultFactorySettings(), ...patch };
-  const result = generate(slices, settings, W, H);
-  return { id: D.newId('s'), name, steps: result.steps, factory: { ...settings, grid: result.grid } };
+  return { id: D.newId('s'), name, steps: generate(slices, settings).steps, factory: settings };
 };
 const byName = (names) => slices.filter((s) => names.includes(s.name)).map((s) => s.id);
 
 doc.sequences = [
-  factory('Sweep L→R', { direction: 'Column' }),
-  factory('Odd / even', { direction: 'Horizontal', modulo: 2 }),
-  factory('Outside in', { direction: 'Column', mirrorX: true }),
-  factory('Random 16ths', { direction: 'Random', shuffle: 7 }),
+  factory('Sweep L→R', { pattern: 'left-right' }),
+  factory('Odd / even', { pattern: 'left-right', alternate: 'odd-even' }),
+  factory('Outside in', { pattern: 'sides-center' }),
+  factory('Random 16ths', { pattern: 'random', steps: 16, shuffle: 7 }),
   {
     id: D.newId('s'),
     name: 'Drop',

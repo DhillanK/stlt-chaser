@@ -15,7 +15,7 @@ It is not affiliated with or endorsed by Resolume or by the makers of any other 
                                      Plugin FFGL in Resolume
 ```
 
-- **Documento**: JSON con slice (id, nome, schermo, quad di input), sequenze, views, griglie della factory per sequenza, envelopes.
+- **Documento**: JSON con slice (id, nome, schermo, quad di input), sequenze (con le impostazioni della Factory), views, envelopes.
 - **File corrente**: `current.stchase` nella cartella dati (vedi FORMAT.md). L'editor ci salva sempre in automatico; *Save As* crea copie.
 - **Envelopes**: file condiviso fra progetti, `envelopes.json` nella cartella dati.
 - **Sincronizzazione**: i plugin controllano la data di modifica del file circa due volte al secondo e ricaricano; i nomi delle sequenze/views/envelopes nei menu di Resolume si aggiornano da soli.
@@ -44,7 +44,7 @@ Layout come nei video: barra superiore (zoom %, adatta, mano, nome documento), m
 
 **Views** (pannello): "All" fissa più views personalizzate; lista schermi/slice con l'occhio. Shift+clic sull'occhio applica a un intervallo. Le slice nuove entrano nascoste nelle views personalizzate. Segnalazione delle sequenze che usano slice fuori dalla view.
 
-**Factory**: griglia dai centri delle slice. Direzione Horizontal / Vertical / Row / Column / Random; Flip X, Flip Y; Block; Modulo (Repeat); Mirror X, Mirror Y; Shuffle; Reset Grid. Le linee della griglia si spostano trascinandole, Canc le elimina, Alt+trascina ne aggiunge. Ogni sequenza ricorda la sua griglia e le sue impostazioni; i ritocchi manuali restano finché non si cambiano le impostazioni.
+**Factory**: schemi calcolati dalla posizione delle slice, senza griglia. Ogni schema dà a ogni slice un valore (x, y, distanza dal centro, angolo da ore 12, x+y); in Auto le slice si raggruppano finché il valore non salta di più di mezza slice tipica e il gruppo non supera una slice, con un numero fisso di passi lo schema si divide in tratti uguali (un vuoto sul palco diventa una pausa). Poi: One step / Build up, Straight / Odd-Even / There & back, Block, Modulo, Shuffle, e le slice spostate a mano (`moves`). Sul canvas ogni slice mostra il passo in cui si accende per la prima volta; un clic la sposta nel passo selezionato. *Create standard sequences…* crea una sequenza per schema.
 
 **Envelopes**: lista (almeno una, massimo 512) ed editor di curve Bézier: doppio clic aggiunge o toglie un punto; maniglie collegate (Alt le separa); Shift blocca un asse; Ctrl disattiva lo snap; selezione multipla; coordinate X/Y del punto; annulla/ripeti; "Make Linear" sul segmento.
 
