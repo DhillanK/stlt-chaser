@@ -86,9 +86,11 @@ endfunction()
 add_stilletchaser_plugin(STLT-CHASER src/Stilletchaser.cpp src/Stilletchaser.h)
 add_stilletchaser_plugin(STLT-WIPER src/Wiper.cpp)
 add_stilletchaser_plugin(STLT-OUTLINER src/Outliner.cpp)
+add_stilletchaser_plugin(STLT-SAMPLER src/Sampler.cpp)
+add_stilletchaser_plugin(STLT-TILER src/Tiler.cpp)
 
 # `cmake --install build --prefix dist` gathers the plugins that ship with the editor.
-set(STLT_PLUGINS STLT-CHASER STLT-WIPER STLT-OUTLINER)
+set(STLT_PLUGINS STLT-CHASER STLT-WIPER STLT-OUTLINER STLT-SAMPLER STLT-TILER)
 if(WIN32)
     foreach(plugin ${STLT_PLUGINS})
         install(FILES $<TARGET_FILE:${plugin}> DESTINATION .)
@@ -106,5 +108,18 @@ if(WIN32)
     target_include_directories(host_test PRIVATE "${FFGL_LIB}" "${FFGL_ROOT}/deps/glew-2.1.0/include")
     target_compile_definitions(host_test PRIVATE GLEW_STATIC NOMINMAX)
     target_link_libraries(host_test PRIVATE "${FFGL_ROOT}/deps/glew-2.1.0/lib/Release/x64/glew32s.lib" opengl32)
-    add_dependencies(host_test STLT-CHASER STLT-WIPER STLT-OUTLINER)
+    add_dependencies(host_test STLT-CHASER STLT-WIPER STLT-OUTLINER STLT-SAMPLER STLT-TILER)
 endif()
+
+# Linux: the same kind of host in a headless EGL context (e.g. Mesa's software renderer), for the
+# plugins it covers: linux_host_test <build folder> <empty scratch folder>
+if(UNIX AND NOT APPLE)
+    find_package(OpenGL COMPONENTS EGL)
+    if(OpenGL_EGL_FOUND)
+        add_executable(linux_host_test tests/linux_host_test.cpp)
+        target_include_directories(linux_host_test PRIVATE "${FFGL_LIB}")
+        target_link_libraries(linux_host_test PRIVATE GLEW::GLEW OpenGL::GL OpenGL::EGL ${CMAKE_DL_LIBS})
+        add_dependencies(linux_host_test STLT-SAMPLER STLT-TILER)
+    endif()
+endif()
+

@@ -11,7 +11,7 @@ if not exist "%DEST%" mkdir "%DEST%"
 rem Earlier builds went into "Extra Effects\Stilletchaser"; two copies would clash in Arena.
 set "OLD=%USERPROFILE%\Documents\Resolume Arena\Extra Effects\Stilletchaser"
 for %%F in (Stilletchaser STLT-CHASER STLT-WIPER STLT-OUTLINER) do if exist "%OLD%\%%F.dll" del "%OLD%\%%F.dll"
-for %%P in (STLT-CHASER STLT-WIPER STLT-OUTLINER) do (
+for %%P in (STLT-CHASER STLT-WIPER STLT-OUTLINER STLT-SAMPLER STLT-TILER) do (
   copy /Y "%~dp0plugin\build\Release\%%P.dll" "%DEST%\%%P.dll" >nul && echo %%P installato.
 )
 echo Riapri Arena.

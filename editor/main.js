@@ -119,7 +119,7 @@ function createWindow() {
       cancelId: 1,
       title: 'STLT-CHASER',
       message: 'Install the STLT plugins into Resolume?',
-      detail: `STLT-CHASER, STLT-WIPER and STLT-OUTLINER will be copied to:\n${status.targets.map((t) => t.folder).join('\n')}\n\nClose Resolume first, then restart it to load them.`,
+      detail: `The STLT effects (STLT-CHASER, -WIPER, -OUTLINER, -SAMPLER and -TILER) will be copied to:\n${status.targets.map((t) => t.folder).join('\n')}\n\nClose Resolume first, then restart it to load them.`,
     });
     if (response !== 0) return;
     const result = plugins.installPlugins(pluginSource(), app.getPath('documents'));

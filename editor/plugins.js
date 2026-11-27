@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
-const PLUGINS = ['STLT-CHASER', 'STLT-WIPER', 'STLT-OUTLINER'];
+const PLUGINS = ['STLT-CHASER', 'STLT-WIPER', 'STLT-OUTLINER', 'STLT-SAMPLER', 'STLT-TILER'];
 const PRODUCTS = ['Resolume Arena', 'Resolume Avenue'];
 const FOLDER = 'STLT-CHASER';
 // Folders and files earlier versions installed; left in place they would load twice.

@@ -51,7 +51,7 @@ export function createPanels(root, store, actions) {
       : '<div class="hint">No Resolume Arena or Avenue folder found in Documents.</div>';
     return `<h3>Resolume plugins</h3>${lines}
       <button class="btn wide" data-act="install-plugins" ${available.length && targets.length ? '' : 'disabled'}>Install / update plugins</button>
-      <div class="hint">${escapeHtml(pluginMessage || 'Copies STLT-CHASER, STLT-WIPER and STLT-OUTLINER into Extra Effects. Close Resolume first.')}</div>`;
+      <div class="hint">${escapeHtml(pluginMessage || 'Copies the STLT effects (CHASER, WIPER, OUTLINER, SAMPLER, TILER) into Extra Effects. Close Resolume first.')}</div>`;
   }
   // Opened from STLT: the document always follows STLT's slices, and the effects come with STLT.
   function renderStltVjFile() {
