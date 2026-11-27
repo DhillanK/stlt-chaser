@@ -13,6 +13,7 @@
 #include <cstring>
 #include <fstream>
 #include <functional>
+#include <tuple>
 #include <string>
 #include <vector>
 #include <ffgl/FFGL.h>
@@ -345,23 +346,34 @@ int main( int argc, char** argv )
 
 		Host s = load( "STLT-SAMPLER.so" );
 		s.Set( s.Find( "View" ), 1.f );// T only
-		Frame f;
-		for( int i = 0; i < 20; ++i )// the plugins notice the new document within half a second
-		{
-			f = render( s );
-			if( f.at( 2, 2 )[ 3 ] == 255 && f.at( 40, 40 )[ 3 ] == 0 )// inside T, outside the old document's A
-				break;
-			usleep( 100000 );
-		}
-		Check( f.at( 10, 10 )[ 0 ] < 25, "Sampler: a triangle averages only the black inside it, not the white beside it (" + rgb( f.at( 10, 10 ) ) + ")" );
+		// Each plugin watches the document itself, at most twice a second: wait until each has the new one.
+		auto waitFor = [ & ]( Host& host, const std::function< bool( const Frame& ) >& ready ) {
+			Frame fr;
+			for( int i = 0; i < 30; ++i )
+			{
+				fr = render( host );
+				if( ready( fr ) )
+					return std::make_pair( fr, true );
+				usleep( 100000 );
+			}
+			return std::make_pair( fr, false );
+		};
+		// Ready: T is drawn (opaque at a corner inside it) and the old document's A is gone (outside T).
+		auto [ f, sampled ] = waitFor( s, []( const Frame& fr ) { return fr.at( 2, 2 )[ 3 ] == 255 && fr.at( 40, 40 )[ 3 ] == 0; } );
+		Check( sampled, "Sampler: picks up the new document" );
+		Check( f.at( 10, 10 )[ 3 ] == 255 && f.at( 10, 10 )[ 0 ] < 25,
+			   "Sampler: a triangle averages only the black inside it, not the white beside it (" + rgb( f.at( 10, 10 ) ) + ")" );
 
 		Host t = load( "STLT-TILER.so" );
 		t.Set( t.Find( "View" ), 2.f );// S only
 		t.Set( t.Find( "Source" ), 1.f );
 		t.Set( t.Find( "Gap" ), 0.f );
 		t.Set( t.Find( "Tiles" ), 8.f );// tiles 12.5 px square: 2.4 rows on the 30 px strip
-		f = render( t );
 		auto lit = []( const Frame& fr, int x, int y ) { return fr.at( x, y )[ 3 ] > 200; };
+		// Ready: the strip's row-1 tile in column 0 is lit, which only the new document's S can light.
+		bool tiled = false;
+		std::tie( f, tiled ) = waitFor( t, [ & ]( const Frame& fr ) { return lit( fr, 6, 24 ); } );
+		Check( tiled, "Tiler: picks up the new document" );
 		// Checker: column 0 is off in row 0 (y 10..22.5) and on in row 1 (y 22.5..35), on again cut short in row 2.
 		Check( !lit( f, 6, 12 ) && !lit( f, 6, 21 ) && lit( f, 6, 24 ) && lit( f, 6, 34 ) && !lit( f, 6, 37 ),
 			   "Tiler: tiles stay square on a long strip (the last row is cut off, not stretched)" );
