@@ -7,6 +7,7 @@
 #include "FrameHistory.h"
 #include "Outline.h"
 #include "PluginCommon.h"
+#include "StepPattern.h"
 
 // The all-in-one Stilletchaser effect.
 // Driver decides which slices are lit (Chaser: a sequence stepped by the Step parameter,
@@ -36,6 +37,12 @@ public:
 
 private:
 	// Every slice's triangles, and where its content comes from (the input or a delayed frame).
+	struct BumpHit
+	{
+		int64_t tick;
+		double time;// steady-clock seconds
+	};
+
 	struct SliceDraw
 	{
 		GLint first;
@@ -50,6 +57,10 @@ private:
 	void UpdateSequenceButtons( bool raiseEvents );
 	// Opacity of every slice for the current step position.
 	void ComputeLevels( const stilletchaser::ChaseDocument& doc, std::vector< float >& levels ) const;
+	void Bump( int64_t tick );
+	void PruneBumps();
+	double BumpSeconds() const;
+	static double SteadySeconds();
 	// How long ago each slice's content comes from: frames with the Frames unit, seconds otherwise.
 	void ComputeDelays( const stilletchaser::ChaseDocument& doc, std::vector< float >& delays ) const;
 	bool DelayInFrames() const;
@@ -84,6 +95,14 @@ private:
 	float driver   = 0.f;
 	float sequence = 0.f;
 	float step     = 0.f;
+	int64_t stepCycle = 0;// loops of Step so far (down when it runs backwards)
+	float direction   = 0.f;
+	float randomCount = 1.f;
+	float randomSteps = 16.f;
+	float bumpLength  = 1.f;
+	std::vector< BumpHit > bumps;
+	int64_t bumpTick = 0;
+	bool bumped      = false;
 	float scaling  = 1.f;
 	float view     = 0.f;
 	float echoes   = 0.f;
