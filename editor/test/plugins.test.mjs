@@ -32,7 +32,7 @@ test('installs the plugins into every Resolume found and removes old copies', ()
     const result = plugins.installPlugins(source, documents);
     assert.deepEqual(result, { installed: ['Resolume Arena'], errors: [] });
     const folder = join(documents, 'Resolume Arena', 'Extra Effects', 'STLT-CHASER');
-    assert.equal(readdirSync(folder).length, 3);
+    assert.equal(readdirSync(folder).length, plugins.PLUGINS.length);
     assert.equal(existsSync(join(documents, 'Resolume Arena', 'Extra Effects', 'Stilletchaser', 'Stilletchaser.dll')), false);
     assert.equal(plugins.pluginStatus(source, documents).needsInstall, false);
   } finally {

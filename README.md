@@ -4,7 +4,7 @@ Screen bumps, chases, wipes, delays and outlines across the slices of **Resolume
 STLT-CHASER is a free, open-source toolkit made of:
 
 - **an editor** (Windows and macOS) where you draw step sequences on your stage, slice by slice, and
-- **three FFGL effects** for Resolume that play them live: **STLT-CHASER**, **STLT-WIPER** and **STLT-OUTLINER**.
+- **five FFGL effects** for Resolume that play them live: **STLT-CHASER**, **STLT-WIPER**, **STLT-OUTLINER**, **STLT-SAMPLER** and **STLT-TILER**.
 
 Whatever you change in the editor reaches Resolume within half a second, even while the effects are running.
 
@@ -22,7 +22,7 @@ STLT-CHASER is an independent project. It is not affiliated with or endorsed by 
 2. **Windows**: run the setup. The installer is not code-signed, so Windows may show *"Windows protected your PC"*: click *More info → Run anyway*.
    **macOS**: open the dmg and drag STLT-CHASER into Applications. The app is not notarised: the first time, right-click it and choose *Open*.
 3. On first launch the editor offers to install the plugins into Resolume (`Documents/Resolume Arena/Extra Effects/STLT-CHASER`). Close Resolume first. You can do it again any time from **File → Install / update plugins**.
-4. Start Resolume: the effects STLT-CHASER, STLT-WIPER and STLT-OUTLINER appear in the effects list.
+4. Start Resolume: the STLT effects appear in the effects list.
 
 Requirements: Resolume Arena or Avenue 7.4 or later (tested with Arena 7.23 on Windows); Windows 10/11 64-bit or macOS 10.15 or later.
 
@@ -42,6 +42,10 @@ Its **Wiper** module runs gradient wipes through the slices of a second sequence
 Its **Outliner** module draws outlines on top with the same controls as STLT-OUTLINER. *Outline Target*: *Lit Slices* follows the chase and the wipes, *All Slices* outlines the whole view; *Outlines Only* hides the video and keeps just the outlines.
 
 **STLT-WIPER** – each step sends a gradient wipe through its slices. Vertical slices wipe bottom to top, horizontal ones away from the centre of the stage. *Length*, *Overlap*, *Loops*, *Flip Direction*, *Odd/Even*, *Swap Directions*, *Envelope*. *Source*: the video or a *Solid Color*; *Show Original* draws the wipes over what comes in instead of on a transparent background.
+
+**STLT-SAMPLER** – lights each slice of a *View* with the colour of the video under it, like a pixel-mapped LED stage. *Sample*: the *Whole Slice* (averaged across the slice's own frame, so rotated strips sample along themselves) or the *Slice Centre*. *Colour*: the *Video*'s own colour, or its brightness in a chosen colour (*Brightness Tint*). *Gain* brightens or dims; *Flat* blends from the video itself (0) to one flat colour per slice (1). *Show Original* keeps the video outside the slices.
+
+**STLT-TILER** – animated tile patterns inside each slice of a *View*. Each slice is cut into square tiles along its own edges (*Tiles* along its long edge, *Gap* between them) and a *Pattern* runs over them, driven by *Phase* (animate it with BPM sync or the timeline): *Checker*, *Stripes*, *Scan*, *Sparkle* (random tiles, *Density* of them) or *Wave*. Patterns run in each slice's direction from the editor's **Directions** page. *Source*: the video (with *Scaling*) or a *Solid Color*.
 
 **STLT-OUTLINER** – outlines drawn inside every slice, so they never bleed into neighbours. Static with an inward *Feather*, or animated tapered lines running around the edges (*Phase*, *Fan*, *Randomise*, *Length*, *Count*, *Flip Direction*, *Odd/Even*). *Show Original* draws them over the incoming video; *Lit Slices Only* outlines just the slices an STLT-CHASER above it is lighting.
 
