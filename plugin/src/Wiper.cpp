@@ -242,6 +242,7 @@ public:
 				const SliceRange& range = ranges[ slice ];
 				bool reversed           = range.reversed != ( values[ PID_FLIP ] > 0.5f ) != wipe.odd;
 				shader.Set( "wipeAlongY", range.alongY ? 1 : 0 );
+				shader.Set( "wipeMirror", range.mirror ? 1 : 0 );
 				shader.Set( "wipeReversed", reversed ? 1 : 0 );
 				glDrawArrays( GL_TRIANGLES, range.first, range.count );
 			}
@@ -259,6 +260,7 @@ private:
 		GLsizei count;
 		bool alongY;
 		bool reversed;
+		bool mirror;
 	};
 
 	void RefreshMenus( bool raiseEvents )
@@ -301,8 +303,8 @@ private:
 		const bool swap           = values[ PID_SWAP ] > 0.5f;
 		for( const Slice& slice : doc->slices )
 		{
-			const WipeDirection direction = BaseWipeDirection( *doc, slice, swap );
-			ranges.push_back( { (GLint)( vertices.size() / 6 ), (GLsizei)slice.indices.size(), direction.alongY, direction.reversed } );
+			const WipeDirection direction = SliceWipeDirection( *doc, slice, swap );
+			ranges.push_back( { (GLint)( vertices.size() / 6 ), (GLsizei)slice.indices.size(), direction.alongY, direction.reversed, direction.mirror } );
 			for( uint16_t i : slice.indices )
 			{
 				const Vec2 p     = slice.points[ i ];

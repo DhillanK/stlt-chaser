@@ -14,6 +14,27 @@ struct Vec2
 	float x, y;
 };
 
+// Which way wipes run through a slice and outlines run around it, set per slice in the editor.
+// Directions are the slice's own: Up is towards its top edge (its first two points) whatever its rotation.
+enum SliceWipe
+{
+	WIPE_AUTO,
+	WIPE_UP,
+	WIPE_RIGHT,
+	WIPE_DOWN,
+	WIPE_LEFT,
+	WIPE_MIRROR_V,// from the middle out to the top and bottom edges
+	WIPE_MIRROR_H,// from the middle out to the left and right edges
+};
+
+enum SliceOutline
+{
+	OUTLINE_AUTO,
+	OUTLINE_CW,
+	OUTLINE_CCW,
+	OUTLINE_MIRRORED,// both ways at once
+};
+
 struct Slice
 {
 	std::string id;
@@ -23,7 +44,35 @@ struct Slice
 	// Frame the content is stretched or filled into: origin plus the slice's own x and y edges.
 	// Rotated rectangles keep their rotation; other shapes use their bounding box.
 	Vec2 origin, axisX, axisY;
+	SliceWipe wipe       = WIPE_AUTO;
+	SliceOutline outline = OUTLINE_AUTO;
 };
+
+// How a wipe runs through a slice: along its x or y edge, from which end, or from the middle out.
+struct WipeDirection
+{
+	bool alongY;  // Along the slice's own y edge rather than its x edge.
+	bool reversed;// From the far edge back (local y runs down the slice); with mirror: from the edges in.
+	bool mirror = false;
+};
+
+// The slice's own choice, or `automatic` when it has none.
+inline WipeDirection ResolveWipe( SliceWipe wipe, WipeDirection automatic )
+{
+	switch( wipe )
+	{
+	case WIPE_UP:       return { true, true };
+	case WIPE_DOWN:     return { true, false };
+	case WIPE_LEFT:     return { false, true };
+	case WIPE_RIGHT:    return { false, false };
+	case WIPE_MIRROR_V: return { true, false, true };
+	case WIPE_MIRROR_H: return { false, false, true };
+	default:            return automatic;
+	}
+}
+
+SliceWipe ParseSliceWipe( const std::string& name );
+SliceOutline ParseSliceOutline( const std::string& name );
 
 struct Sequence
 {

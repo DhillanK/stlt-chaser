@@ -38,6 +38,7 @@ export function validateDocument(doc) {
   }
   if (doc.sequences.length === 0) doc.sequences.push(createSequence('Sequence 1'));
   if (!doc.views.length || doc.views[0].id !== 'all') doc.views.unshift({ id: 'all', name: 'All', hidden: [] });
+  if (doc.directions !== undefined && (typeof doc.directions !== 'object' || doc.directions === null || Array.isArray(doc.directions))) delete doc.directions;
   return doc;
 }
 
@@ -66,6 +67,11 @@ export function relink(doc, setup, sourcePath) {
   for (const view of doc.views) {
     if (view.id === 'all') view.hidden = view.hidden.map(mapId).filter((id) => alive.has(id));
     else view.visible = view.visible.map(mapId).filter((id) => alive.has(id));
+  }
+  if (doc.directions) {
+    const kept = {};
+    for (const [id, direction] of Object.entries(doc.directions)) if (alive.has(mapId(id))) kept[mapId(id)] = direction;
+    doc.directions = kept;
   }
 
   doc.source = { path: sourcePath, compWidth: setup.compWidth, compHeight: setup.compHeight };
@@ -240,4 +246,58 @@ export function removeView(doc, index) {
 export function sequenceLeavesView(doc, sequence, view) {
   const allowed = new Set(viewSliceIds(doc, view));
   return sequence.steps.some((step) => step.some((id) => !allowed.has(id)));
+}
+
+// ---- Directions ----
+// Each slice can say which way wipes run through it and which way animated outlines run around it.
+// Kept apart from the slices (which come from Arena and are replaced on every relink), by slice id;
+// a slice that is not listed, or a value that is not listed here, is Auto.
+
+export const WIPE_DIRECTIONS = ['auto', 'up', 'right', 'down', 'left', 'mirror-v', 'mirror-h'];
+export const OUTLINE_DIRECTIONS = ['auto', 'cw', 'ccw', 'mirrored'];
+
+export function sliceDirection(doc, sliceId) {
+  const set = doc.directions?.[sliceId] ?? {};
+  return {
+    wipe: WIPE_DIRECTIONS.includes(set.wipe) ? set.wipe : 'auto',
+    outline: OUTLINE_DIRECTIONS.includes(set.outline) ? set.outline : 'auto',
+  };
+}
+
+/** Sets `kind` ('wipe' or 'outline') of every slice in `sliceIds`; Auto is stored as nothing. */
+export function setSliceDirection(doc, sliceIds, kind, value) {
+  const allowed = kind === 'wipe' ? WIPE_DIRECTIONS : kind === 'outline' ? OUTLINE_DIRECTIONS : null;
+  if (!allowed || !allowed.includes(value)) throw new Error(`Unknown ${kind} direction: ${value}`);
+  const directions = { ...(doc.directions ?? {}) };
+  for (const id of sliceIds) {
+    const next = { ...(directions[id] ?? {}) };
+    if (value === 'auto') delete next[kind];
+    else next[kind] = value;
+    if (Object.keys(next).length) directions[id] = next;
+    else delete directions[id];
+  }
+  if (Object.keys(directions).length) doc.directions = directions;
+  else delete doc.directions;
+}
+
+// What Auto means for a slice, worked out like the plugins do: a slice taller than wide (on screen, in
+// composition pixels) wipes up; a wider one wipes away from the centre of the stage. Outlines run clockwise.
+export function autoWipe(doc, slice) {
+  const p = slice.points;
+  const edge = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+  let width, height, centreX;
+  if (p.length === 4) {
+    width = edge(p[0], p[1]);
+    height = edge(p[0], p[3]);
+    centreX = (p[1][0] + p[3][0]) / 2; // the middle of the frame the plugins use
+  } else {
+    const xs = p.map((q) => q[0]);
+    const ys = p.map((q) => q[1]);
+    width = Math.max(...xs) - Math.min(...xs);
+    height = Math.max(...ys) - Math.min(...ys);
+    centreX = (Math.max(...xs) + Math.min(...xs)) / 2;
+  }
+  centreX /= doc.source?.compWidth || 1;
+  if (height > width) return 'up';
+  return centreX < 0.5 ? 'left' : 'right';
 }

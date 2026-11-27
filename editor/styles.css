@@ -223,3 +223,9 @@ select.menu-item { appearance: auto; }
 .show-menu button.on { color: var(--accent); }
 .show-menu .count { color: var(--text-dim); }
 .show-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+
+/* Directions panel: the choices in two columns, each with its arrow. */
+.dir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px 12px; }
+.dir-grid .btn { display: flex; align-items: center; gap: 6px; text-align: left; }
+.dir-grid .btn .glyph { width: 14px; text-align: center; font-weight: 700; }
+.btn:disabled:hover { background: var(--bg-input); }

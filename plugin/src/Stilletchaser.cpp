@@ -702,8 +702,9 @@ void Stilletchaser::DrawWipes( const ChaseDocument& d, const FFGLTexCoords& inpu
 		{
 			if( !v.includes[ slice ] )
 				continue;
-			const WipeDirection direction = BaseWipeDirection( d, d.slices[ slice ], swap );
+			const WipeDirection direction = SliceWipeDirection( d, d.slices[ slice ], swap );
 			shader.Set( "wipeAlongY", direction.alongY ? 1 : 0 );
+			shader.Set( "wipeMirror", direction.mirror ? 1 : 0 );
 			shader.Set( "wipeReversed", ( direction.reversed != flip != active.odd ) ? 1 : 0 );
 			BindSliceTexture( draws[ slice ], inputMax );
 			glDrawArrays( GL_TRIANGLES, draws[ slice ].first, draws[ slice ].count );

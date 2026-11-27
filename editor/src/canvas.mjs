@@ -1,7 +1,8 @@
 // The stage canvas: draws the slices, toggles them in the selected step, pans and zooms.
 // With the Factory open it shows the step each slice lights in, and a click moves a slice there.
+// With Directions open a click or a band selects slices, and each slice shows its wipe and outline direction.
 import { bounds, boxCoverage, centroid, pointInPolygon } from './geometry.mjs';
-import { isVisibleInView, setVisibleInView, toggleSliceInStep, setSliceInStep } from './document.mjs';
+import { isVisibleInView, setVisibleInView, toggleSliceInStep, setSliceInStep, sliceDirection, autoWipe } from './document.mjs';
 import { firstSteps, isPatternFactory } from './factory.mjs';
 import { screenColour, stageLayout } from './layout.mjs';
 
@@ -22,6 +23,8 @@ const colors = () => ({
   frameLine: THEME.frameLine ?? 'rgba(255, 255, 255, 0.16)',
   title: THEME.text,
   badgeText: '#ffffff',
+  onAccentBadge: THEME.accent,
+  dim: 'rgba(255, 255, 255, 0.45)',
 });
 const MIN_ZOOM = 0.02;
 const MAX_ZOOM = 20;
@@ -39,6 +42,17 @@ export function createCanvas(canvas, store, { onFactoryPick, onShowScreen }) {
   const ui = () => store.state.ui;
   // The Factory panel is open on a sequence it made: numbers on the slices, clicks move them.
   const factoryOpen = () => ui().panel === 'factory' && isPatternFactory(store.currentSequence.factory);
+  const directionsOpen = () => ui().panel === 'directions';
+  const selection = () => new Set(ui().directionSelection ?? []);
+  function select(ids, how) {
+    const next = how === 'replace' ? new Set() : selection();
+    for (const id of ids) {
+      if (how === 'remove') next.delete(id);
+      else if (how === 'toggle' && next.has(id)) next.delete(id);
+      else next.add(id);
+    }
+    store.setUi({ directionSelection: [...next] });
+  }
 
   // What is shown and where (stageLayout), and every slice's bounds and area there: worked out again only when
   // the document, the view or the choice of screens changes (the mouse asks on every move).
@@ -185,7 +199,8 @@ export function createCanvas(canvas, store, { onFactoryPick, onShowScreen }) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const lit = displayedStep();
+    // With Directions open the highlighted slices are the selected ones, not the step's.
+    const lit = directionsOpen() ? selection() : displayedStep();
     ctx.save();
     ctx.translate(view.panX, view.panY);
     ctx.scale(view.zoom, view.zoom);
@@ -216,6 +231,7 @@ export function createCanvas(canvas, store, { onFactoryPick, onShowScreen }) {
     drawTitles();
     drawLabels(lit);
     if (factoryOpen()) drawStepNumbers();
+    if (directionsOpen()) drawDirections(lit);
     if (drag?.type === 'band') {
       const x = Math.min(drag.x0, drag.x1);
       const y = Math.min(drag.y0, drag.y1);
@@ -301,6 +317,67 @@ export function createCanvas(canvas, store, { onFactoryPick, onShowScreen }) {
     }
   }
 
+  // On each slice, a badge with its wipe arrow and its outline direction, turned with the slice
+  // (Up points at its top edge, the edge between its first two points). Auto shows dimmed.
+  const OUTLINE_GLYPH = { auto: '\u21bb', cw: '\u21bb', ccw: '\u21ba', mirrored: '\u21c4' };
+  function drawDirections(selected) {
+    for (const item of visibleItems()) {
+      const { slice, points, bounds: b } = item;
+      if ((b.maxX - b.minX) * view.zoom < 34 || (b.maxY - b.minY) * view.zoom < 16) continue;
+      const set = sliceDirection(doc(), slice.id);
+      const wipe = set.wipe === 'auto' ? autoWipe(doc(), slice) : set.wipe;
+      // The slice's own axes: along its top edge, and down its left edge (the bounding box for other shapes).
+      let ax = [1, 0];
+      let ay = [0, 1];
+      if (points.length === 4) {
+        const unit = ([x, y]) => {
+          const l = Math.hypot(x, y) || 1;
+          return [x / l, y / l];
+        };
+        ax = unit([points[1][0] - points[0][0], points[1][1] - points[0][1]]);
+        ay = unit([points[3][0] - points[0][0], points[3][1] - points[0][1]]);
+      }
+      const along = { up: [-ay[0], -ay[1]], down: ay, left: [-ax[0], -ax[1]], right: ax, 'mirror-v': ay, 'mirror-h': ax }[wipe];
+      const both = wipe === 'mirror-v' || wipe === 'mirror-h';
+
+      const [cx, cy] = toScreen(...item.centre);
+      const y = cy + (slice.name && !item.labelHidden && (b.maxY - b.minY) * view.zoom >= 40 ? 14 : 0);
+      ctx.fillStyle = COLORS.badge;
+      ctx.beginPath();
+      ctx.roundRect(cx - 19, y - 9, 38, 18, 9);
+      ctx.fill();
+
+      const strong = selected.has(slice.id) ? COLORS.onAccentBadge : COLORS.badgeText;
+      const arrowColour = set.wipe === 'auto' ? COLORS.dim : strong;
+      const half = 6;
+      const ox = cx - 8;
+      const [dx, dy] = along;
+      ctx.strokeStyle = arrowColour;
+      ctx.fillStyle = arrowColour;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(ox - dx * half, y - dy * half);
+      ctx.lineTo(ox + dx * half, y + dy * half);
+      ctx.stroke();
+      const head = (sx, sy, hx, hy) => {
+        ctx.beginPath();
+        ctx.moveTo(sx + hx * 4, sy + hy * 4);
+        ctx.lineTo(sx - hx * 1 - hy * 3.2, sy - hy * 1 + hx * 3.2);
+        ctx.lineTo(sx - hx * 1 + hy * 3.2, sy - hy * 1 - hx * 3.2);
+        ctx.closePath();
+        ctx.fill();
+      };
+      head(ox + dx * (half - 2), y + dy * (half - 2), dx, dy);
+      if (both) head(ox - dx * (half - 2), y - dy * (half - 2), -dx, -dy);
+
+      ctx.font = '600 12px Segoe UI, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = set.outline === 'auto' ? COLORS.dim : strong;
+      ctx.fillText(OUTLINE_GLYPH[set.outline], cx + 9, y + 0.5);
+    }
+  }
+
   function cursorFor() {
     if (drag?.type === 'pan') return 'grabbing';
     if (spaceDown || ui().tool === 'hand') return 'grab';
@@ -321,6 +398,11 @@ export function createCanvas(canvas, store, { onFactoryPick, onShowScreen }) {
     if (event.button !== 0) return;
 
     const slice = sliceAt(x, y);
+    if (directionsOpen()) {
+      // A band from anywhere, slices included (a click without a drag picks the slice under it, on release).
+      drag = { type: 'band', x0: x, y0: y, x1: x, y1: y, frame: frameAt(x, y), clickSlice: slice?.id ?? null };
+      return;
+    }
     if (slice && factoryOpen() && !event.shiftKey && !event.ctrlKey && !event.altKey) {
       onFactoryPick(slice.id);
       return;
@@ -389,6 +471,16 @@ export function createCanvas(canvas, store, { onFactoryPick, onShowScreen }) {
     const ids = visibleItems()
       .filter((item) => (drag.frame < 0 || item.frame === drag.frame) && boxCoverage(box, item.bounds) >= 0.5)
       .map((item) => item.slice.id);
+    if (directionsOpen()) {
+      // A click (barely moved): this slice; Shift adds or takes it away, Ctrl takes it away.
+      if (Math.abs(drag.x1 - drag.x0) < 4 && Math.abs(drag.y1 - drag.y0) < 4 && drag.clickSlice) {
+        select([drag.clickSlice], event.ctrlKey ? 'remove' : event.shiftKey ? 'toggle' : 'replace');
+        return;
+      }
+      // A band selects what is in it (Shift adds, Ctrl takes away); a click on nothing clears the selection.
+      if (ids.length || (!event.shiftKey && !event.ctrlKey)) select(ids, event.ctrlKey ? 'remove' : event.shiftKey ? 'add' : 'replace');
+      return;
+    }
     if (!ids.length) return;
     const { sequenceIndex, stepIndex, viewIndex } = ui();
     store.edit((d) => {

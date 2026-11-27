@@ -21,7 +21,7 @@ export function createPanels(root, store, actions) {
       root.onclick = null;
       root.dataset.panel = panel;
     }
-    ({ file: renderFile, views: renderViews, sequences: renderSequences, factory: renderFactory, envelopes: renderEnvelopes, export: renderExport })[panel]();
+    ({ file: renderFile, views: renderViews, sequences: renderSequences, factory: renderFactory, directions: renderDirections, envelopes: renderEnvelopes, export: renderExport })[panel]();
   }
 
   // ---- File ----
@@ -123,6 +123,58 @@ export function createPanels(root, store, actions) {
       } else if (act === 'load') actions.load();
       else if (act === 'save-as') actions.saveAs();
       else if (act === 'relink') actions.relinkTo(event.shiftKey ? null : doc().source.path || null);
+    };
+  }
+
+  // ---- Directions ----
+
+  const WIPE_CHOICES = [
+    ['auto', 'Auto', ''], ['up', 'Up', '\u2191'], ['right', 'Right', '\u2192'], ['down', 'Down', '\u2193'],
+    ['left', 'Left', '\u2190'], ['mirror-v', 'Mirror V', '\u2195'], ['mirror-h', 'Mirror H', '\u2194'],
+  ];
+  const OUTLINE_CHOICES = [['auto', 'Auto', ''], ['cw', 'Clockwise', '\u21bb'], ['ccw', 'Anticlockwise', '\u21ba'], ['mirrored', 'Mirrored', '\u21c4']];
+
+  function renderDirections() {
+    const shown = new Set(D.viewSliceIds(doc(), store.currentView));
+    const selected = (ui().directionSelection ?? []).filter((id) => shown.has(id));
+    const values = (kind) => new Set(selected.map((id) => D.sliceDirection(doc(), id)[kind]));
+    const choices = (kind, list) => {
+      const current = values(kind);
+      return list
+        .map(
+          ([value, label, glyph]) =>
+            `<button class="btn ${current.size === 1 && current.has(value) ? 'on' : ''}" data-dir="${kind}:${value}" ${selected.length ? '' : 'disabled'}>${glyph ? `<span class="glyph">${glyph}</span>` : ''}${label}</button>`,
+        )
+        .join('');
+    };
+    const custom = Object.keys(doc().directions ?? {}).filter((id) => shown.has(id)).length;
+    root.innerHTML = `
+      <h3>Directions</h3>
+      <div class="hint">Which way wipes run through each slice and outlines run around it. Click slices on the stage to pick them: Shift adds, Ctrl takes away, drag a box for many.</div>
+      <div class="row"><label>${selected.length ? `${selected.length} selected` : 'Nothing selected'}</label>
+        <button class="btn" data-act="all">All</button><button class="btn" data-act="none" ${selected.length ? '' : 'disabled'}>None</button></div>
+      <div class="section">Wiper</div>
+      <div class="dir-grid">${choices('wipe', WIPE_CHOICES)}</div>
+      <div class="section">Outliner</div>
+      <div class="dir-grid">${choices('outline', OUTLINE_CHOICES)}</div>
+      <div class="hint">Up runs towards the slice's top edge, so the arrow turns with the slice and points the way it plays on the screen. Mirror wipes from the middle out to both edges.</div>
+      <div class="hint">Auto: tall slices wipe up, wide ones away from the centre of the stage; outlines run clockwise. Flip and Odd/Even on the effects still work on top.</div>
+      ${custom ? `<button class="btn wide" data-act="reset">Set all ${custom} back to Auto</button>` : ''}`;
+    root.onclick = (event) => {
+      const button = event.target.closest('button');
+      if (!button || button.disabled) return;
+      if (button.dataset.dir) {
+        const [kind, value] = button.dataset.dir.split(':');
+        store.edit((d) => D.setSliceDirection(d, selected, kind, value));
+      } else if (button.dataset.act === 'all') store.setUi({ directionSelection: [...shown] });
+      else if (button.dataset.act === 'none') store.setUi({ directionSelection: [] });
+      else if (button.dataset.act === 'reset') {
+        const ids = Object.keys(doc().directions ?? {}).filter((id) => shown.has(id));
+        store.edit((d) => {
+          D.setSliceDirection(d, ids, 'wipe', 'auto');
+          D.setSliceDirection(d, ids, 'outline', 'auto');
+        });
+      }
     };
   }
 
