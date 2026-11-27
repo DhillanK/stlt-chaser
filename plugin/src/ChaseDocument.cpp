@@ -150,6 +150,20 @@ void ParseDocument( const json& j, ChaseDocument& doc )
 		doc.slices.push_back( std::move( slice ) );
 	}
 
+	// Per-slice directions (optional; slices not listed are Auto).
+	if( j.contains( "directions" ) && j[ "directions" ].is_object() )
+	{
+		for( auto it = j[ "directions" ].begin(); it != j[ "directions" ].end(); ++it )
+		{
+			auto found = indexOf.find( it.key() );
+			if( found == indexOf.end() || !it.value().is_object() )
+				continue;
+			Slice& slice = doc.slices[ found->second ];
+			slice.wipe    = ParseSliceWipe( it.value().value( "wipe", "auto" ) );
+			slice.outline = ParseSliceOutline( it.value().value( "outline", "auto" ) );
+		}
+	}
+
 	for( const json& s : j.at( "sequences" ) )
 	{
 		Sequence sequence;
@@ -204,6 +218,25 @@ void ParseEnvelopes( const json& j, ChaseDocument& doc )
 	}
 }
 }// namespace
+
+SliceWipe ParseSliceWipe( const std::string& name )
+{
+	if( name == "up" ) return WIPE_UP;
+	if( name == "right" ) return WIPE_RIGHT;
+	if( name == "down" ) return WIPE_DOWN;
+	if( name == "left" ) return WIPE_LEFT;
+	if( name == "mirror-v" ) return WIPE_MIRROR_V;
+	if( name == "mirror-h" ) return WIPE_MIRROR_H;
+	return WIPE_AUTO;
+}
+
+SliceOutline ParseSliceOutline( const std::string& name )
+{
+	if( name == "cw" ) return OUTLINE_CW;
+	if( name == "ccw" ) return OUTLINE_CCW;
+	if( name == "mirrored" ) return OUTLINE_MIRRORED;
+	return OUTLINE_AUTO;
+}
 
 // Where the editor keeps its working copy: Electron's appData folder for the app, or STLT_DATA_DIR when the
 // host sets it (STLT does, so its sequences stay apart from a Resolume setup's).

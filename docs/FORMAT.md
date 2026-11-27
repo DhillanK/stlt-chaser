@@ -32,7 +32,10 @@ L'editor lo riscrive a ogni modifica (sostituzione atomica: scrive `current.stch
   "views": [
     { "id": "all", "name": "All", "hidden": [] },
     { "id": "v-1", "name": "Left", "visible": ["1774528979054"] }
-  ]
+  ],
+  "directions": {
+    "1774528979054": { "wipe": "mirror-v", "outline": "ccw" }
+  }
 }
 ```
 
@@ -40,6 +43,7 @@ L'editor lo riscrive a ogni modifica (sostituzione atomica: scrive `current.stch
 - `steps[i]`: id delle slice accese nel passo `i`. La lunghezza dell'array è il numero di passi (1–1024).
 - `screens[]` ha anche `width`/`height` dell'uscita; `slices[]` ha anche `outPoints` (dove la slice finisce sull'uscita). Servono solo all'export delle mappe.
 - `views`: la view `all` esiste sempre, è la prima e ha `hidden` (slice nascoste solo nell'anteprima dell'editor: per i plugin `all` vuol dire tutte le slice). Le altre view hanno `visible`: le slice che includono. Le slice nuove non ci sono, quindi restano nascoste finché non le accendi.
+- `directions` (facoltativo): la direzione scelta nel pannello Directions, per id di slice. `wipe`: `up`, `right`, `down`, `left`, `mirror-v`, `mirror-h` (dal centro verso i due bordi); `outline`: `cw`, `ccw`, `mirrored` (nei due sensi). Le direzioni sono quelle della slice: `up` va verso il suo bordo superiore (fra il primo e il secondo punto), anche se è ruotata. Una slice che non c'è, o un valore che manca o non si conosce, è Auto (come prima). Resta al relink, con gli stessi abbinamenti per id e per nome dei passi.
 - `factory`: impostazioni della Factory usate per generare la sequenza (`null` se fatta a mano). I plugin lo ignorano. Dalla versione con gli schemi: `pattern` (`left-right`, `right-left`, `top-bottom`, `bottom-top`, `center-out`, `out-center`, `sides-center`, `diagonal`, `clockwise`, `random`), `steps` (0 = Auto), `fill` (`step` o `build`), `alternate` (`none`, `odd-even`, `there-back`), `block`, `modulo`, `shuffle`, `moves` (`{ id slice: indice del passo }`, le slice spostate a mano). Le sequenze fatte con la griglia delle versioni precedenti hanno invece `direction` e `grid`: i loro passi restano come sono.
 
 ## `envelopes.json` — envelope condivisi fra progetti

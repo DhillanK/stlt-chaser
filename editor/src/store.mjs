@@ -16,6 +16,7 @@ export function createStore({ doc, library, prefs, paths }) {
       viewIndex: 0,
       envelopeIndex: 0,
       panel: null,
+      directionSelection: [], // slices picked in the Directions panel
       mode: 'canvas',
       tool: 'select',
       playing: false,

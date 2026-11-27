@@ -7,6 +7,7 @@
 using namespace stilletchaser;
 
 static int failures = 0;
+static void CheckDirections();
 #define CHECK( cond )                                                    \
 	do                                                                   \
 	{                                                                    \
@@ -27,6 +28,8 @@ int main( int argc, char** argv )
 	for( int i = 0; i < 256; ++i )
 		ramp[ i ] = i / 255.f;
 	CHECK( std::fabs( SampleLut( ramp, 0.5f ) - 0.5f ) < 1e-4f );
+
+	CheckDirections();
 
 	auto missing = LoadChaseDocument( "does-not-exist.stchase", "nope.json" );
 	CHECK( !missing->error.empty() && missing->slices.empty() );
@@ -54,4 +57,38 @@ int main( int argc, char** argv )
 	}
 	std::printf( "%s\n", failures ? "FAILED" : "ok" );
 	return failures;
+}
+
+// Per-slice directions: read from the document, unknown values and unlisted slices are Auto.
+static void CheckDirections()
+{
+	const char* path = "directions_test.stchase";
+	if( FILE* f = std::fopen( path, "w" ) )
+	{
+		std::fputs( R"({"format":"stilletchaser","version":1,"source":{"compWidth":100,"compHeight":100},
+			"slices":[{"id":"a","points":[[0,0],[10,0],[10,10],[0,10]]},{"id":"b","points":[[20,0],[30,0],[30,10],[20,10]]},
+			          {"id":"c","points":[[40,0],[50,0],[50,10],[40,10]]}],
+			"sequences":[{"id":"s","name":"S","steps":[["a"]]}],"views":[{"id":"all","name":"All","hidden":[]}],
+			"directions":{"a":{"wipe":"mirror-v","outline":"ccw"},"b":{"wipe":"sideways"},"gone":{"wipe":"up"}}})",
+					f );
+		std::fclose( f );
+	}
+	auto doc = LoadChaseDocument( path, "nope.json" );
+	std::remove( path );
+	CHECK( doc->error.empty() && doc->slices.size() == 3 );
+	if( doc->slices.size() == 3 )
+	{
+		CHECK( doc->slices[ 0 ].wipe == WIPE_MIRROR_V && doc->slices[ 0 ].outline == OUTLINE_CCW );
+		CHECK( doc->slices[ 1 ].wipe == WIPE_AUTO && doc->slices[ 1 ].outline == OUTLINE_AUTO );
+		CHECK( doc->slices[ 2 ].wipe == WIPE_AUTO );
+	}
+	const WipeDirection automatic{ true, true, false };
+	auto same = []( WipeDirection a, WipeDirection b ) { return a.alongY == b.alongY && a.reversed == b.reversed && a.mirror == b.mirror; };
+	CHECK( same( ResolveWipe( WIPE_AUTO, automatic ), automatic ) );
+	CHECK( same( ResolveWipe( WIPE_UP, automatic ), WipeDirection{ true, true, false } ) );
+	CHECK( same( ResolveWipe( WIPE_DOWN, automatic ), WipeDirection{ true, false, false } ) );
+	CHECK( same( ResolveWipe( WIPE_LEFT, automatic ), WipeDirection{ false, true, false } ) );
+	CHECK( same( ResolveWipe( WIPE_RIGHT, automatic ), WipeDirection{ false, false, false } ) );
+	CHECK( same( ResolveWipe( WIPE_MIRROR_V, automatic ), WipeDirection{ true, false, true } ) );
+	CHECK( same( ResolveWipe( WIPE_MIRROR_H, automatic ), WipeDirection{ false, false, true } ) );
 }

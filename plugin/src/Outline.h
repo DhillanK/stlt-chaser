@@ -37,7 +37,7 @@ public:
 
 private:
 	void UploadOutline( const ChaseDocument& doc, const Slice& slice );
-	int Direction( const OutlineStyle& style, Vec2 centre, int shownIndex ) const;
+	int Direction( const OutlineStyle& style, const Slice& slice, Vec2 centre, int shownIndex ) const;
 
 	ffglex::FFGLShader shader;
 	FloatVertexBuffer mesh;

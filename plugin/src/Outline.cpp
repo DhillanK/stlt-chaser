@@ -123,12 +123,19 @@ void OutlineRenderer::DeInitGL()
 	mesh.Release();
 }
 
-// Clockwise by default. Flip Direction mirrors the stage: slices right of centre run
-// clockwise, left of centre anticlockwise, centred ones both ways. Odd/Even reverses every other slice.
-int OutlineRenderer::Direction( const OutlineStyle& style, Vec2 centre, int shownIndex ) const
+// A slice's own direction from the editor, reversed by Flip Direction. Auto slices run clockwise;
+// for them Flip mirrors the stage instead: slices right of centre run clockwise, left of centre
+// anticlockwise, centred ones both ways. Odd/Even reverses every other slice.
+int OutlineRenderer::Direction( const OutlineStyle& style, const Slice& slice, Vec2 centre, int shownIndex ) const
 {
 	int direction = 1;
-	if( style.flip )
+	if( slice.outline != OUTLINE_AUTO )
+	{
+		direction = slice.outline == OUTLINE_CW ? 1 : slice.outline == OUTLINE_CCW ? -1 : 0;
+		if( style.flip )
+			direction = -direction;
+	}
+	else if( style.flip )
 	{
 		if( std::fabs( centre.x - 0.5f ) < 0.02f )
 			direction = 0;
@@ -222,7 +229,7 @@ void OutlineRenderer::Draw( const ChaseDocument& doc, const OutlineStyle& style,
 			const Vec2 centre      = SliceCentre( slice );
 			const float fromCentre = std::hypot( centre.x - 0.5f, centre.y - 0.5f );
 			shader.Set( "head", style.phase + style.fan * fromCentre + style.randomise * Hash( s ) );
-			shader.Set( "direction", Direction( style, centre, shown ) );
+			shader.Set( "direction", Direction( style, slice, centre, shown ) );
 		}
 		glDrawArrays( GL_TRIANGLES, ranges[ s ].first, ranges[ s ].second );
 		++shown;

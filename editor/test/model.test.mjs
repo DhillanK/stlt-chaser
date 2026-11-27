@@ -324,3 +324,40 @@ test('the stage shows every screen side by side, one screen, or the composition'
   assert.equal(resolveShow(doc, 'gone'), 'screens');
   assert.equal(resolveShow({ screens: [], slices: doc.slices }, 'a'), 'composition');
 });
+
+test('per-slice directions: set, Auto stored as nothing, kept across relink by id and by name', () => {
+  const doc = sampleDoc();
+  D.setSliceDirection(doc, ['1', '2'], 'wipe', 'mirror-v');
+  D.setSliceDirection(doc, ['1'], 'outline', 'ccw');
+  assert.deepEqual(D.sliceDirection(doc, '1'), { wipe: 'mirror-v', outline: 'ccw' });
+  assert.deepEqual(D.sliceDirection(doc, '3'), { wipe: 'auto', outline: 'auto' });
+  D.setSliceDirection(doc, ['2'], 'wipe', 'auto');
+  assert.deepEqual(Object.keys(doc.directions), ['1']);
+  assert.throws(() => D.setSliceDirection(doc, ['1'], 'wipe', 'sideways'));
+
+  // Slice 2 renamed to 22 (same name), slice 3 gone: 1 keeps its directions.
+  D.setSliceDirection(doc, ['2'], 'outline', 'mirrored');
+  const setup = parseAdvancedOutput(SAMPLE.replace('uniqueId="2"', 'uniqueId="22"').replace(/<Polygon[\s\S]*<\/Polygon>/, ''));
+  D.relink(doc, setup, 'x.xml');
+  assert.deepEqual(D.sliceDirection(doc, '1'), { wipe: 'mirror-v', outline: 'ccw' });
+  assert.deepEqual(D.sliceDirection(doc, '22'), { wipe: 'auto', outline: 'mirrored' });
+  assert.equal(doc.directions['2'], undefined);
+
+  D.setSliceDirection(doc, ['1', '22'], 'wipe', 'auto');
+  D.setSliceDirection(doc, ['1', '22'], 'outline', 'auto');
+  assert.equal(doc.directions, undefined, 'all Auto leaves nothing in the file');
+  // A damaged value is ignored, not trusted.
+  const odd = D.validateDocument({ ...sampleDoc(), directions: { 1: { wipe: 'nowhere' } } });
+  assert.equal(D.sliceDirection(odd, '1').wipe, 'auto');
+  assert.equal(D.validateDocument({ ...sampleDoc(), directions: [] }).directions, undefined);
+});
+
+test('Auto direction matches the plugins: tall slices up, wide ones away from the centre', () => {
+  const doc = { source: { compWidth: 1000, compHeight: 500 } };
+  const rect = (x, y, w, h) => ({ points: [[x, y], [x + w, y], [x + w, y + h], [x, y + h]] });
+  assert.equal(D.autoWipe(doc, rect(10, 0, 20, 200)), 'up');
+  assert.equal(D.autoWipe(doc, rect(0, 0, 300, 50)), 'left');
+  assert.equal(D.autoWipe(doc, rect(600, 0, 300, 50)), 'right');
+  // A rotated strip: its own edges decide, not its bounding box.
+  assert.equal(D.autoWipe(doc, { points: [[100, 100], [140, 60], [300, 220], [260, 260]] }), 'up');
+});

@@ -148,11 +148,6 @@ inline std::vector< ActiveWipe > ActiveWipes( int count, float step, int loops, 
 
 // Automatic direction: vertical slices wipe bottom to top, horizontal ones away from the centre
 // of the stage. Swap treats vertical slices as horizontal and the other way round.
-struct WipeDirection
-{
-	bool alongY;  // Along the slice's own y edge rather than its x edge.
-	bool reversed;// From the far edge back (local y runs down the slice).
-};
 
 inline WipeDirection BaseWipeDirection( const ChaseDocument& doc, const Slice& slice, bool swap )
 {
@@ -163,6 +158,12 @@ inline WipeDirection BaseWipeDirection( const ChaseDocument& doc, const Slice& s
 	return { vertical, vertical ? true : SliceCentre( slice ).x < 0.5f };
 }
 
+// The direction set on the slice in the editor; Auto slices follow the rule above (and Swap).
+inline WipeDirection SliceWipeDirection( const ChaseDocument& doc, const Slice& slice, bool swap )
+{
+	return ResolveWipe( slice.wipe, BaseWipeDirection( doc, slice, swap ) );
+}
+
 // GLSL: opacity of a wipe band at slice-local position `local` (0 = nothing).
 inline const char* WipeAlphaGLSL()
 {
@@ -171,11 +172,14 @@ uniform float wipeHead;
 uniform float wipeLength;
 uniform int wipeAlongY;
 uniform int wipeReversed;
+uniform int wipeMirror;
 uniform int wipeUseCurve;
 uniform float wipeCurve[ 256 ];
 float wipeAlpha( vec2 local )
 {
 	float d = wipeAlongY != 0 ? local.y : local.x;
+	if( wipeMirror != 0 )
+		d = abs( d - 0.5 ) * 2.0;// from the middle out
 	if( wipeReversed != 0 )
 		d = 1.0 - d;
 	// 0 at the leading edge, 1 at the tail of the band.
