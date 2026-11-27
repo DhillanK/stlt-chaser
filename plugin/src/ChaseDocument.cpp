@@ -158,9 +158,15 @@ void ParseDocument( const json& j, ChaseDocument& doc )
 			auto found = indexOf.find( it.key() );
 			if( found == indexOf.end() || !it.value().is_object() )
 				continue;
-			Slice& slice = doc.slices[ found->second ];
-			slice.wipe    = ParseSliceWipe( it.value().value( "wipe", "auto" ) );
-			slice.outline = ParseSliceOutline( it.value().value( "outline", "auto" ) );
+			// Only text is a direction: anything else (null, a number...) is Auto, never a reason to drop the document.
+			const json& set = it.value();
+			auto text       = [ &set ]( const char* key ) {
+				const auto field = set.find( key );
+				return field != set.end() && field->is_string() ? field->get< std::string >() : std::string( "auto" );
+			};
+			Slice& slice  = doc.slices[ found->second ];
+			slice.wipe    = ParseSliceWipe( text( "wipe" ) );
+			slice.outline = ParseSliceOutline( text( "outline" ) );
 		}
 	}
 

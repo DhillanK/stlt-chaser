@@ -69,7 +69,7 @@ static void CheckDirections()
 			"slices":[{"id":"a","points":[[0,0],[10,0],[10,10],[0,10]]},{"id":"b","points":[[20,0],[30,0],[30,10],[20,10]]},
 			          {"id":"c","points":[[40,0],[50,0],[50,10],[40,10]]}],
 			"sequences":[{"id":"s","name":"S","steps":[["a"]]}],"views":[{"id":"all","name":"All","hidden":[]}],
-			"directions":{"a":{"wipe":"mirror-v","outline":"ccw"},"b":{"wipe":"sideways"},"gone":{"wipe":"up"}}})",
+			"directions":{"a":{"wipe":"mirror-v","outline":"ccw"},"b":{"wipe":"sideways"},"c":{"wipe":null,"outline":7},"gone":{"wipe":"up"},"bad":3}})",
 					f );
 		std::fclose( f );
 	}
@@ -80,7 +80,7 @@ static void CheckDirections()
 	{
 		CHECK( doc->slices[ 0 ].wipe == WIPE_MIRROR_V && doc->slices[ 0 ].outline == OUTLINE_CCW );
 		CHECK( doc->slices[ 1 ].wipe == WIPE_AUTO && doc->slices[ 1 ].outline == OUTLINE_AUTO );
-		CHECK( doc->slices[ 2 ].wipe == WIPE_AUTO );
+		CHECK( doc->slices[ 2 ].wipe == WIPE_AUTO && doc->slices[ 2 ].outline == OUTLINE_AUTO );// null and a number: Auto, document kept
 	}
 	const WipeDirection automatic{ true, true, false };
 	auto same = []( WipeDirection a, WipeDirection b ) { return a.alongY == b.alongY && a.reversed == b.reversed && a.mirror == b.mirror; };
