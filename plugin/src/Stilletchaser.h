@@ -58,6 +58,9 @@ private:
 	// Opacity of every slice for the current step position.
 	void ComputeLevels( const stilletchaser::ChaseDocument& doc, std::vector< float >& levels ) const;
 	void Bump( int64_t tick );
+	void PruneBumps();
+	double BumpSeconds() const;
+	static double SteadySeconds();
 	// How long ago each slice's content comes from: frames with the Frames unit, seconds otherwise.
 	void ComputeDelays( const stilletchaser::ChaseDocument& doc, std::vector< float >& delays ) const;
 	bool DelayInFrames() const;

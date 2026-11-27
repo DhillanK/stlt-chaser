@@ -478,8 +478,9 @@ void Stilletchaser::ComputeLevels( const ChaseDocument& d, std::vector< float >&
 	if( mode == DRIVER_BUMPER )
 	{
 		// Each bump lights its step at full strength and fades over Bump Length; quick bumps overlap.
-		const double length = std::max( bumpLength, 0.0625f ) * 60.0 / std::max( bpm, 1.f );
-		const double now    = std::chrono::duration< double >( std::chrono::steady_clock::now().time_since_epoch() ).count();
+		// Finished bumps are gone (PruneBumps), so a slower tempo or a longer Bump Length cannot bring one back.
+		const double length = BumpSeconds();
+		const double now    = SteadySeconds();
 		for( const BumpHit& b : bumps )
 		{
 			const double t = ( now - b.time ) / length;
@@ -493,11 +494,30 @@ void Stilletchaser::ComputeLevels( const ChaseDocument& d, std::vector< float >&
 	runSteps( TicksPerCycle( order, count ), [ & ]( int64_t tick, float opacity ) { light( seq.steps[ StepAt( order, count, tick ) ], opacity ); } );
 }
 
+double Stilletchaser::SteadySeconds()
+{
+	return std::chrono::duration< double >( std::chrono::steady_clock::now().time_since_epoch() ).count();
+}
+
+double Stilletchaser::BumpSeconds() const
+{
+	return std::max( bumpLength, 0.0625f ) * 60.0 / std::max( bpm, 1.f );
+}
+
+// Forgets the bumps that have faded out at the current tempo and Bump Length. Called every frame,
+// so a bump that has finished never lights again, whatever the tempo or length do afterwards.
+void Stilletchaser::PruneBumps()
+{
+	const double length = BumpSeconds();
+	const double now    = SteadySeconds();
+	bumps.erase( std::remove_if( bumps.begin(), bumps.end(), [ & ]( const BumpHit& b ) { return ( now - b.time ) / length >= 1.0; } ), bumps.end() );
+}
+
 void Stilletchaser::Bump( int64_t tick )
 {
 	bumpTick = tick;
-	const double now = std::chrono::duration< double >( std::chrono::steady_clock::now().time_since_epoch() ).count();
-	bumps.push_back( { tick, now } );
+	PruneBumps();
+	bumps.push_back( { tick, SteadySeconds() } );
 	if( bumps.size() > MAX_BUMPS )
 		bumps.erase( bumps.begin() );
 }
@@ -768,6 +788,7 @@ FFResult Stilletchaser::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 
 	std::vector< float > levels;
 	std::vector< float > delays;
+	PruneBumps();
 	ComputeLevels( *doc, levels );
 	ComputeDelays( *doc, delays );
 	BuildVertices( *doc, delays, input );
