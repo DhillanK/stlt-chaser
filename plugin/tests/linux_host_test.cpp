@@ -6,6 +6,7 @@
 #include <EGL/eglext.h>
 #include <GL/glew.h>
 #include <dlfcn.h>
+#include <unistd.h>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -314,6 +315,56 @@ int main( int argc, char** argv )
 		t.Set( source, 0.f );// the video in the tiles
 		f = render( t );
 		Check( near( f.at( 8, 2 )[ 0 ], 255 ) && near( f.at( 58, 8 )[ 2 ], ( 58 - 50 ) * 255 / 49, 8 ), "Tiler: Video shows the video in the lit tiles" );
+	}
+
+	// ---- Shapes that are not rectangles, and long strips (a second document) ----
+	{
+		// A triangle T (the top-left half of the left square) over black, with white video beside it in its
+		// bounding box; and a strip S, 100 x 30, across the right... the whole width, below.
+		std::ofstream( data + "/current.stchase" ) << R"({
+		  "format": "stilletchaser", "version": 1, "name": "shapes",
+		  "source": { "path": "", "compWidth": 100, "compHeight": 50 },
+		  "screens": [], "slices": [
+		    { "id": "T", "name": "T", "points": [[0,0],[50,0],[0,50]] },
+		    { "id": "S", "name": "S", "points": [[0,10],[100,10],[100,40],[0,40]] }
+		  ],
+		  "sequences": [ { "id": "1", "name": "All", "steps": [ ["T","S"] ] } ],
+		  "views": [ { "id": "all", "name": "All", "hidden": [] }, { "id": "t", "name": "T", "visible": ["T"] }, { "id": "s", "name": "S", "visible": ["S"] } ]
+		})";
+		for( int y = 0; y < H; ++y )
+			for( int x = 0; x < W; ++x )
+			{
+				unsigned char* p = &image[ ( ( H - 1 - y ) * W + x ) * 4 ];// rows from the bottom, as GL stores them
+				const unsigned char v = x + y < 50 ? 0 : 255;
+				p[ 0 ] = p[ 1 ] = p[ 2 ] = v;
+				p[ 3 ]                   = 255;
+			}
+		glBindTexture( GL_TEXTURE_2D, input );
+		glTexSubImage2D( GL_TEXTURE_2D, 0, 0, 0, W, H, GL_RGBA, GL_UNSIGNED_BYTE, image.data() );
+		glBindTexture( GL_TEXTURE_2D, 0 );
+
+		Host s = load( "STLT-SAMPLER.so" );
+		s.Set( s.Find( "View" ), 1.f );// T only
+		Frame f;
+		for( int i = 0; i < 20; ++i )// the plugins notice the new document within half a second
+		{
+			f = render( s );
+			if( f.at( 2, 2 )[ 3 ] == 255 && f.at( 40, 40 )[ 3 ] == 0 )// inside T, outside the old document's A
+				break;
+			usleep( 100000 );
+		}
+		Check( f.at( 10, 10 )[ 0 ] < 25, "Sampler: a triangle averages only the black inside it, not the white beside it (" + rgb( f.at( 10, 10 ) ) + ")" );
+
+		Host t = load( "STLT-TILER.so" );
+		t.Set( t.Find( "View" ), 2.f );// S only
+		t.Set( t.Find( "Source" ), 1.f );
+		t.Set( t.Find( "Gap" ), 0.f );
+		t.Set( t.Find( "Tiles" ), 8.f );// tiles 12.5 px square: 2.4 rows on the 30 px strip
+		f = render( t );
+		auto lit = []( const Frame& fr, int x, int y ) { return fr.at( x, y )[ 3 ] > 200; };
+		// Checker: column 0 is off in row 0 (y 10..22.5) and on in row 1 (y 22.5..35), on again cut short in row 2.
+		Check( !lit( f, 6, 12 ) && !lit( f, 6, 21 ) && lit( f, 6, 24 ) && lit( f, 6, 34 ) && !lit( f, 6, 37 ),
+			   "Tiler: tiles stay square on a long strip (the last row is cut off, not stretched)" );
 	}
 
 	std::printf( "%s\n", failures ? "FAILED" : "all passed" );

@@ -114,7 +114,7 @@ void main()
 	vec2 f    = g - cell;
 	if( any( lessThan( f, vec2( gap * 0.5 ) ) ) || any( greaterThan( f, vec2( 1.0 - gap * 0.5 ) ) ) )
 		discard;
-	float count = alongY != 0 ? tiles.y : tiles.x;
+	float count = ceil( alongY != 0 ? tiles.y : tiles.x );// a cut-off last row still counts
 	float n     = alongY != 0 ? cell.y : cell.x;
 	float along = ( n + 0.5 ) / count;
 	if( mirror != 0 )
@@ -284,10 +284,11 @@ public:
 			if( !view.includes[ s ] )
 				continue;
 			const Slice& slice = doc->slices[ s ];
-			// Square tiles: Tiles along the long edge, as many as fit along the short one.
+			// Square tiles: Tiles along the long edge, and the same size along the short one, where the
+			// last row is cut off by the slice's edge (rounding to whole rows would stretch them).
 			const Vec2 size   = SliceSize( *doc, slice );
 			const float ratio = size.x > 0.f && size.y > 0.f ? std::min( size.x, size.y ) / std::max( size.x, size.y ) : 1.f;
-			const float other = std::max( 1.f, std::round( tiles * ratio ) );
+			const float other = std::max( tiles * ratio, 1e-3f );
 			const WipeDirection direction = SliceWipeDirection( *doc, slice, false );
 			glUniform2f( uniforms[ 0 ], size.x >= size.y ? tiles : other, size.x >= size.y ? other : tiles );
 			glUniform1i( uniforms[ 1 ], direction.alongY ? 1 : 0 );
